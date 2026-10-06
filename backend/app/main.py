@@ -170,6 +170,34 @@ def add_student_record(student_data: Dict[str, Any]):
         "total_students": len(students)
     }
 
+@app.get("/api/synthetic/applications")
+def get_synthetic_applications(
+    scheme: Optional[str] = None,
+    band: Optional[str] = None,
+    limit: int = 500
+):
+    apps = load_json_file("synthetic_applications.json")
+    if scheme and scheme != "all":
+        apps = [a for a in apps if a.get("scholarship_type") == scheme]
+    if band and band != "all":
+        apps = [a for a in apps if a.get("risk_band") == band]
+    return apps[:limit]
+
+@app.get("/api/synthetic/csv-list")
+def get_synthetic_csv_list():
+    synth_dir = os.path.join(DATA_DIR, "synthetic")
+    files_info = []
+    if os.path.exists(synth_dir):
+        for f in os.listdir(synth_dir):
+            if f.endswith(".csv") or f.endswith(".sql"):
+                fpath = os.path.join(synth_dir, f)
+                files_info.append({
+                    "filename": f,
+                    "size_bytes": os.path.getsize(fpath),
+                    "size_formatted": f"{os.path.getsize(fpath)/1024:.1f} KB"
+                })
+    return files_info
+
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "service": "Scholarship Sentinel API", "engine": "NetworkX v3"}

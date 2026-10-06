@@ -5,6 +5,7 @@ import clustersFixture from '../fixtures/clusters.json';
 import institutionsFixture from '../fixtures/institutions.json';
 import csvClustersFixture from '../fixtures/csv_clusters.json';
 import studentsRawFixture from '../fixtures/students_raw.json';
+import syntheticApplicationsFixture from '../fixtures/synthetic_applications.json';
 
 const API_BASE = 'http://localhost:8000/api';
 
@@ -12,6 +13,7 @@ const API_BASE = 'http://localhost:8000/api';
 let localClusters: Cluster[] = JSON.parse(JSON.stringify(clustersFixture));
 let localCsvClusters: Cluster[] = JSON.parse(JSON.stringify(csvClustersFixture));
 let localRawStudents: any[] = JSON.parse(JSON.stringify(studentsRawFixture));
+let localSyntheticApps: any[] = JSON.parse(JSON.stringify(syntheticApplicationsFixture));
 
 export const api = {
   async getSummary(): Promise<SummaryData> {
@@ -82,6 +84,39 @@ export const api = {
 
   async getRawStudents(): Promise<any[]> {
     return localRawStudents;
+  },
+
+  async getSyntheticApplications(): Promise<any[]> {
+    try {
+      const res = await fetch(`${API_BASE}/synthetic/applications`);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // fallback
+    }
+    return localSyntheticApps;
+  },
+
+  async getSyntheticCsvFiles(): Promise<any[]> {
+    try {
+      const res = await fetch(`${API_BASE}/synthetic/csv-list`);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // fallback
+    }
+    return [
+      { filename: "applications.csv", size_formatted: "680.4 KB", rows: 10000, desc: "Full 10,000 application records with amounts & schemes" },
+      { filename: "students.csv", size_formatted: "582.1 KB", rows: 10000, desc: "Normalized student demographic and course entities" },
+      { filename: "institutions.csv", size_formatted: "4.8 KB", rows: 60, desc: "60 state colleges with active and registered capacities" },
+      { filename: "attendance.csv", size_formatted: "310.2 KB", rows: 10000, desc: "Verified semester attendance logs and percentages" },
+      { filename: "bank_accounts.csv", size_formatted: "492.0 KB", rows: 10000, desc: "Disbursement accounts, IFSC codes, and beneficiary names" },
+      { filename: "documents.csv", size_formatted: "512.6 KB", rows: 10000, desc: "Income & caste certificate hashes and issuing authorities" },
+      { filename: "ground_truth.csv", size_formatted: "5.4 KB", rows: 240, desc: "Target labels for all 12 planted anomaly rings (CL-104 to CL-149)" },
+      { filename: "seed.sql", size_formatted: "1.8 KB", rows: 50, desc: "PostgreSQL schema DDL and bulk COPY commands" }
+    ];
   },
 
   async addStudent(studentData: any): Promise<{
