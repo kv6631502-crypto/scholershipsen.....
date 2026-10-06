@@ -136,6 +136,40 @@ async def analyze_csv_endpoint(file: Optional[UploadFile] = File(None)):
     result = build_student_graph_from_records(records)
     return result
 
+@app.post("/api/students")
+def add_student_record(student_data: Dict[str, Any]):
+    # Load current raw students
+    students = load_json_file("students_raw.json")
+    
+    # Assign ID if missing
+    new_id = len(students) + 1
+    student_data["Student_ID"] = student_data.get("Student_ID", new_id)
+    students.insert(0, student_data)
+    save_json_file("students_raw.json", students)
+    
+    # Re-run graph clustering on updated records
+    graph_res = build_student_graph_from_records(students)
+    detected_clusters = graph_res.get("clusters", [])
+    
+    # Update csv_clusters.json
+    save_json_file("csv_clusters.json", detected_clusters)
+    
+    # Find if this student triggered or belongs to any cluster
+    student_sid = str(student_data["Student_ID"])
+    matched_cluster = None
+    for c in detected_clusters:
+        if any(s.get("id") == f"CSV-S{student_sid}" or s.get("id") == str(student_sid) or s.get("name") == student_data.get("Student_Name") for s in c.get("students", [])):
+            matched_cluster = c
+            break
+            
+    return {
+        "status": "success",
+        "student": student_data,
+        "matched_cluster": matched_cluster,
+        "all_clusters": detected_clusters,
+        "total_students": len(students)
+    }
+
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "service": "Scholarship Sentinel API", "engine": "NetworkX v3"}

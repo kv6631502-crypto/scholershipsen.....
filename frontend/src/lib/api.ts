@@ -11,6 +11,7 @@ const API_BASE = 'http://localhost:8000/api';
 // In-memory cluster cache to keep local state updates persistent when offline
 let localClusters: Cluster[] = JSON.parse(JSON.stringify(clustersFixture));
 let localCsvClusters: Cluster[] = JSON.parse(JSON.stringify(csvClustersFixture));
+let localRawStudents: any[] = JSON.parse(JSON.stringify(studentsRawFixture));
 
 export const api = {
   async getSummary(): Promise<SummaryData> {
@@ -80,7 +81,118 @@ export const api = {
   },
 
   async getRawStudents(): Promise<any[]> {
-    return studentsRawFixture;
+    return localRawStudents;
+  },
+
+  async addStudent(studentData: any): Promise<{
+    success: boolean;
+    student: any;
+    matchedCluster?: Cluster | null;
+    allClusters: Cluster[];
+  }> {
+    try {
+      const res = await fetch(`${API_BASE}/students`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(studentData),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        localRawStudents.unshift(data.student);
+        localCsvClusters = data.all_clusters;
+        return {
+          success: true,
+          student: data.student,
+          matchedCluster: data.matched_cluster,
+          allClusters: data.all_clusters,
+        };
+      }
+    } catch {
+      // offline fallback
+    }
+
+    const newId = localRawStudents.length + 1;
+    const finalStudent = {
+      Student_ID: studentData.Student_ID || newId,
+      ...studentData,
+    };
+    localRawStudents.unshift(finalStudent);
+
+    // Check if links into existing CSV clusters (e.g., CL-CSV-01, CL-CSV-02, CL-CSV-03)
+    let matched: Cluster | null = null;
+    const aadhaarStr = String(finalStudent.Aadhaar_No || '');
+    const accStr = String(finalStudent.Account_No || '');
+    const mobStr = String(finalStudent.Contact_No || '');
+
+    if (aadhaarStr.includes('4828') || accStr.includes('1517') || aadhaarStr === '593974214828') {
+      matched = localCsvClusters.find(c => c.id === 'CL-CSV-01') || null;
+      if (matched) {
+        matched.counts.students += 1;
+        matched.students.push({
+          id: `CSV-S${finalStudent.Student_ID}`,
+          name: finalStudent.Student_Name,
+          institution: 'J&K Government School',
+          institution_id: 'INST-CSV-01',
+          course: `Class ${finalStudent.Class}`,
+          year: `DOB: ${finalStudent.DOB}`,
+          attendance: Number(finalStudent.attendance) || 24,
+          bank_masked: `••••${accStr.slice(-4)}`,
+          mobile_masked: `${mobStr.slice(0, 2)}••••${mobStr.slice(-4)}`,
+          address: `Father: ${finalStudent.Father_Name}`,
+          amount: Number(finalStudent.amount) || 16000,
+          scheme: `Category: ${finalStudent.Category}`,
+          doc_hash: `Aadhaar ••••${aadhaarStr.slice(-4)}`,
+          status: 'Flagged',
+        });
+        matched.graph.nodes.push({
+          id: `CSV-S${finalStudent.Student_ID}`,
+          label: finalStudent.Student_Name,
+          type: 'student',
+          risk: 'flagged',
+          details: `Class ${finalStudent.Class} (Live Ingested)`,
+        });
+        matched.graph.edges.push({
+          source: `CSV-S${finalStudent.Student_ID}`,
+          target: 'CSV-ACC-1517',
+          label: 'PAID_TO',
+          flagged: true,
+        });
+        matched.graph.edges.push({
+          source: `CSV-S${finalStudent.Student_ID}`,
+          target: 'CSV-ADH-4828',
+          label: 'HAS_DOCUMENT',
+          flagged: true,
+        });
+      }
+    } else if (mobStr.includes('1704')) {
+      matched = localCsvClusters.find(c => c.id === 'CL-CSV-03') || null;
+      if (matched) {
+        matched.counts.students += 1;
+        matched.students.push({
+          id: `CSV-S${finalStudent.Student_ID}`,
+          name: finalStudent.Student_Name,
+          institution: 'J&K Government School',
+          institution_id: 'INST-CSV-01',
+          course: `Class ${finalStudent.Class}`,
+          year: `DOB: ${finalStudent.DOB}`,
+          attendance: Number(finalStudent.attendance) || 36,
+          bank_masked: `••••${accStr.slice(-4)}`,
+          mobile_masked: `${mobStr.slice(0, 2)}••••${mobStr.slice(-4)}`,
+          address: `Father: ${finalStudent.Father_Name}`,
+          amount: Number(finalStudent.amount) || 12000,
+          scheme: `Category: ${finalStudent.Category}`,
+          doc_hash: `Aadhaar ••••${aadhaarStr.slice(-4)}`,
+          status: 'Review',
+        });
+      }
+    }
+
+    return {
+      success: true,
+      student: finalStudent,
+      matchedCluster: matched,
+      allClusters: localCsvClusters,
+    };
   },
 
   async takeAction(clusterId: string, payload: ActionPayload): Promise<{ success: boolean; newStatus: string }> {

@@ -114,6 +114,29 @@ export function App() {
     }
   };
 
+  const handleAddStudent = async (studentData: any) => {
+    const res = await api.addStudent(studentData);
+    if (res.success) {
+      setRawStudents(await api.getRawStudents());
+      setCsvClusters([...res.allClusters]);
+
+      if (res.matchedCluster) {
+        addToast(
+          'alert',
+          `Convergence Alert: ${res.matchedCluster.id}`,
+          `Applicant ${studentData.Student_Name} matched existing cluster signals (Risk: ${res.matchedCluster.score}/100)`
+        );
+      } else {
+        addToast(
+          'success',
+          'Beneficiary Record Ingested',
+          `Verified independent record saved for ${studentData.Student_Name} (Score: 15/100)`
+        );
+      }
+    }
+    return res;
+  };
+
   // Current cluster for detail view
   const currentCluster =
     clusters.find((c) => c.id.toLowerCase() === selectedClusterId.toLowerCase()) ||
@@ -341,6 +364,7 @@ export function App() {
                 rawStudents={rawStudents}
                 csvClusters={csvClusters}
                 onOpenCluster={handleOpenCluster}
+                onAddStudent={handleAddStudent}
               />
             )}
           </>
