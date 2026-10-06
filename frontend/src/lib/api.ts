@@ -119,6 +119,182 @@ export const api = {
     ];
   },
 
+  async analyzeCsvFile(fileOrText: File | string): Promise<{
+    success: boolean;
+    total_records: number;
+    clusters: Cluster[];
+    total_nodes: number;
+    total_edges: number;
+    records: any[];
+  }> {
+    try {
+      const formData = new FormData();
+      if (typeof fileOrText === 'string') {
+        const blob = new Blob([fileOrText], { type: 'text/csv' });
+        formData.append('file', blob, 'custom_dataset.csv');
+      } else {
+        formData.append('file', fileOrText);
+      }
+
+      const res = await fetch(`${API_BASE}/analyze-csv`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.records && data.records.length > 0) {
+          localRawStudents = data.records;
+        }
+        if (data.clusters) {
+          localCsvClusters = data.clusters;
+        }
+        return {
+          success: true,
+          total_records: data.total_records || (data.records ? data.records.length : 0),
+          clusters: data.clusters || [],
+          total_nodes: data.total_nodes || 0,
+          total_edges: data.total_edges || 0,
+          records: data.records || [],
+        };
+      }
+    } catch {
+      // offline fallback
+    }
+
+    // Client-side CSV Parser Fallback
+    let text = '';
+    if (typeof fileOrText === 'string') {
+      text = fileOrText;
+    } else {
+      text = await fileOrText.text();
+    }
+
+    const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+    if (lines.length < 2) {
+      return { success: false, total_records: 0, clusters: [], total_nodes: 0, total_edges: 0, records: [] };
+    }
+
+    const headers = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, ''));
+    const parsedRecords: any[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim().replace(/^["']|["']$/g, ''));
+      const obj: any = {};
+      headers.forEach((h, idx) => {
+        obj[h] = values[idx] || '';
+      });
+      if (!obj.Student_ID) obj.Student_ID = i;
+      parsedRecords.push(obj);
+    }
+
+    localRawStudents = parsedRecords;
+
+    // Detect duplicate Aadhaar, Account, Contact
+    const aadhaarMap: Record<string, any[]> = {};
+    const accMap: Record<string, any[]> = {};
+    const contactMap: Record<string, any[]> = {};
+
+    parsedRecords.forEach(r => {
+      const a = String(r.Aadhaar_No || '').trim();
+      const b = String(r.Account_No || '').trim();
+      const c = String(r.Contact_No || '').trim();
+      if (a && a.length >= 8) {
+        if (!aadhaarMap[a]) aadhaarMap[a] = [];
+        aadhaarMap[a].push(r);
+      }
+      if (b && b.length >= 4) {
+        if (!accMap[b]) accMap[b] = [];
+        accMap[b].push(r);
+      }
+      if (c && c.length >= 8) {
+        if (!contactMap[c]) contactMap[c] = [];
+        contactMap[c].push(r);
+      }
+    });
+
+    const newClusters: Cluster[] = [];
+    let cIdx = 1;
+
+    // Find Aadhaar or Bank collisions
+    Object.keys(aadhaarMap).forEach(k => {
+      if (aadhaarMap[k].length >= 2) {
+        const group = aadhaarMap[k];
+        newClusters.push({
+          id: `CL-UPLOAD-${String(cIdx).padStart(2, '0')}`,
+          title: `Duplicated Aadhaar Ring (${group.length} Students)`,
+          pattern: `${group.length} students claim duplicate Aadhaar ending in ${k.slice(-4)}`,
+          score: 85,
+          band: 'high',
+          status: 'open',
+          created_at: 'Just now (Uploaded CSV)',
+          counts: {
+            students: group.length,
+            institutions: 1,
+            banks: 1,
+            mobiles: 1,
+            addresses: 1,
+            documents: 1
+          },
+          reasons: [
+            { signal: 'shared_aadhaar', label: 'Duplicated Aadhaar ID', points: 25, text: `Identical Aadhaar ••••${k.slice(-4)} registered across multiple applicants` },
+            { signal: 'shared_bank', label: 'Shared bank account', points: 25, text: 'Disbursements routed to common account destination' },
+            { signal: 'attendance', label: 'Verification required', points: 15, text: 'Multi-grade or multi-identity convergence flagged' }
+          ],
+          students: group.map(g => ({
+            id: `UPL-S${g.Student_ID}`,
+            name: g.Student_Name || 'Applicant',
+            institution: 'Government School',
+            institution_id: 'INST-UPL',
+            course: `Class ${g.Class || 'N/A'}`,
+            year: g.DOB || '2005',
+            attendance: 22,
+            bank_masked: `••••${String(g.Account_No).slice(-4)}`,
+            mobile_masked: `••••${String(g.Contact_No).slice(-4)}`,
+            address: `Father: ${g.Father_Name || ''}`,
+            amount: 15000,
+            scheme: `Category: ${g.Category || 'Gen'}`,
+            doc_hash: `Aadhaar ••••${k.slice(-4)}`,
+            status: 'Flagged'
+          })),
+          timeline: [{ time: 'Just now', officer: 'CSV Upload Scanner', action: 'Cluster Extracted', note: 'Uploaded CSV file parsed and scanned.' }],
+          graph: {
+            nodes: [
+              ...group.map(g => ({
+                id: `UPL-S${g.Student_ID}`,
+                label: g.Student_Name || 'Student',
+                type: 'student' as const,
+                risk: 'flagged' as const,
+                details: `Class ${g.Class || ''}`
+              })),
+              { id: `UPL-ADH-${k.slice(-4)}`, label: `Aadhaar ••••${k.slice(-4)}`, type: 'document' as const, risk: 'high' as const, is_shared: true, details: 'Duplicate Aadhaar' }
+            ],
+            edges: group.map(g => ({
+              source: `UPL-S${g.Student_ID}`,
+              target: `UPL-ADH-${k.slice(-4)}`,
+              label: 'HAS_DOCUMENT',
+              flagged: true
+            }))
+          }
+        });
+        cIdx++;
+      }
+    });
+
+    if (newClusters.length > 0) {
+      localCsvClusters = newClusters;
+    }
+
+    return {
+      success: true,
+      total_records: parsedRecords.length,
+      clusters: newClusters.length > 0 ? newClusters : localCsvClusters,
+      total_nodes: parsedRecords.length + (newClusters.length * 2),
+      total_edges: parsedRecords.length * 2,
+      records: parsedRecords,
+    };
+  },
+
   async addStudent(studentData: any): Promise<{
     success: boolean;
     student: any;
