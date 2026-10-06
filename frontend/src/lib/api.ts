@@ -1,4 +1,5 @@
 import { SummaryData, Cluster, Institution, ActionPayload } from '../types';
+import * as XLSX from 'xlsx';
 
 import summaryFixture from '../fixtures/summary.json';
 import clustersFixture from '../fixtures/clusters.json';
@@ -162,31 +163,50 @@ export const api = {
       // offline fallback
     }
 
-    // Client-side CSV Parser Fallback
-    let text = '';
-    if (typeof fileOrText === 'string') {
-      text = fileOrText;
-    } else {
-      text = await fileOrText.text();
+    // Client-side File Parser Fallback (Supports CSV & Excel .xlsx / .xls)
+    let parsedRecords: any[] = [];
+    try {
+      if (typeof fileOrText !== 'string' && (fileOrText.name.toLowerCase().endsWith('.xlsx') || fileOrText.name.toLowerCase().endsWith('.xls'))) {
+        const buf = await fileOrText.arrayBuffer();
+        const wb = XLSX.read(buf, { type: 'array' });
+        const firstSheetName = wb.SheetNames[0];
+        const ws = wb.Sheets[firstSheetName];
+        parsedRecords = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      } else {
+        const text = typeof fileOrText === 'string' ? fileOrText : await fileOrText.text();
+        const wb = XLSX.read(text, { type: 'string' });
+        if (wb.SheetNames && wb.SheetNames.length > 0) {
+          const firstSheetName = wb.SheetNames[0];
+          const ws = wb.Sheets[firstSheetName];
+          parsedRecords = XLSX.utils.sheet_to_json(ws, { defval: '' });
+        }
+      }
+    } catch {
+      // Fallback line-by-line CSV parser
+      const text = typeof fileOrText === 'string' ? fileOrText : await fileOrText.text();
+      const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+      if (lines.length >= 2) {
+        const headers = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, ''));
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(',').map(v => v.trim().replace(/^["']|["']$/g, ''));
+          const obj: any = {};
+          headers.forEach((h, idx) => {
+            obj[h] = values[idx] || '';
+          });
+          if (!obj.Student_ID) obj.Student_ID = i;
+          parsedRecords.push(obj);
+        }
+      }
     }
 
-    const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
-    if (lines.length < 2) {
+    if (parsedRecords.length === 0) {
       return { success: false, total_records: 0, clusters: [], total_nodes: 0, total_edges: 0, records: [] };
     }
 
-    const headers = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, ''));
-    const parsedRecords: any[] = [];
-
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim().replace(/^["']|["']$/g, ''));
-      const obj: any = {};
-      headers.forEach((h, idx) => {
-        obj[h] = values[idx] || '';
-      });
-      if (!obj.Student_ID) obj.Student_ID = i;
-      parsedRecords.push(obj);
-    }
+    // Ensure Student_ID exists
+    parsedRecords.forEach((r, idx) => {
+      if (!r.Student_ID) r.Student_ID = idx + 1;
+    });
 
     localRawStudents = parsedRecords;
 
@@ -293,6 +313,17 @@ export const api = {
       total_edges: parsedRecords.length * 2,
       records: parsedRecords,
     };
+  },
+
+  exportToExcel(data: any[], filename = 'export.xlsx') {
+    try {
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Beneficiaries');
+      XLSX.writeFile(wb, filename);
+    } catch (err) {
+      console.error('Failed to export Excel file:', err);
+    }
   },
 
   async addStudent(studentData: any): Promise<{

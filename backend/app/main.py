@@ -121,6 +121,7 @@ def take_cluster_action(cluster_id: str, payload: ActionRequest):
     return {"status": "success", "cluster": target, "new_status": new_status}
 
 @app.post("/api/analyze-csv")
+@app.post("/api/analyze-file")
 async def analyze_csv_endpoint(
     file: Optional[UploadFile] = File(None),
     csv_text: Optional[str] = None
@@ -128,14 +129,18 @@ async def analyze_csv_endpoint(
     try:
         if file:
             content = await file.read()
-            df = pd.read_csv(io.BytesIO(content))
+            filename = (file.filename or "").lower()
+            if filename.endswith(".xlsx") or filename.endswith(".xls"):
+                df = pd.read_excel(io.BytesIO(content))
+            else:
+                df = pd.read_csv(io.BytesIO(content))
         elif csv_text:
             df = pd.read_csv(io.StringIO(csv_text))
         else:
             # Fallback to local students.csv
             csv_path = os.path.join(DATA_DIR, "..", "students.csv")
             if not os.path.exists(csv_path):
-                raise HTTPException(status_code=400, detail="No CSV provided or found")
+                raise HTTPException(status_code=400, detail="No CSV/Excel provided or found")
             df = pd.read_csv(csv_path)
 
         df = df.fillna("")
@@ -150,7 +155,7 @@ async def analyze_csv_endpoint(
             "records": records
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error parsing CSV file: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Error parsing file: {str(e)}")
 
 @app.post("/api/students")
 def add_student_record(student_data: Dict[str, Any]):

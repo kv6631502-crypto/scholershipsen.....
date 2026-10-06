@@ -129,10 +129,18 @@ export const DataPage: React.FC<DataPageProps> = ({
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
-      if (file.name.endsWith('.csv') || file.type === 'text/csv') {
+      const lower = file.name.toLowerCase();
+      if (
+        lower.endsWith('.csv') ||
+        lower.endsWith('.xlsx') ||
+        lower.endsWith('.xls') ||
+        file.type.includes('csv') ||
+        file.type.includes('spreadsheet') ||
+        file.type.includes('excel')
+      ) {
         setSelectedFile(file);
       } else {
-        alert('Please upload a valid CSV (.csv) file.');
+        alert('Please upload a valid CSV (.csv) or Excel (.xlsx, .xls) file.');
       }
     }
   };
@@ -143,10 +151,10 @@ export const DataPage: React.FC<DataPageProps> = ({
     }
   };
 
-  // Run Scan on Uploaded CSV
+  // Run Scan on Uploaded CSV / Excel
   const handleRunCsvScan = async () => {
     if (!selectedFile && !csvText.trim()) {
-      alert('Please upload a CSV file or paste CSV content first.');
+      alert('Please upload a CSV or Excel file, or paste CSV content first.');
       return;
     }
 
@@ -159,16 +167,16 @@ export const DataPage: React.FC<DataPageProps> = ({
           onCsvUploaded(res.records, res.clusters);
         }
       } else {
-        alert('Failed to parse CSV. Please verify that the file has a valid header row.');
+        alert('Failed to parse file. Please verify that the spreadsheet or CSV has a valid header row.');
       }
     } catch (err: any) {
-      alert(`Error scanning CSV: ${err.message || 'Unknown error'}`);
+      alert(`Error scanning file: ${err.message || 'Unknown error'}`);
     } finally {
       setIsUploading(false);
     }
   };
 
-  // Quick Demo Template for CSV Upload
+  // Quick Demo Template for CSV / Excel Upload
   const loadDemoCsvTemplate = () => {
     const demoCsv = `Student_ID,Admission_No,Student_Name,Class,DOB,Category,Father_Name,Mother_Name,Aadhaar_No,Account_No,Contact_No,IFSC_Code,Identification_Mark
 1,230,Kasturi Sharma,8th,27-04-2008,Gen,Parshotam Sharma,Reva Rani,593974214828,0684041000001517,9682558540,JAKA0KALBAR,Mole on neck
@@ -206,6 +214,47 @@ export const DataPage: React.FC<DataPageProps> = ({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  // Helper to trigger browser download of Excel (.xlsx)
+  const handleExportExcel = (filename: string, dataset: any[]) => {
+    api.exportToExcel(dataset, filename);
+  };
+
+  const handleDownloadExcelTemplate = () => {
+    const templateData = [
+      {
+        Student_ID: 1,
+        Admission_No: 230,
+        Student_Name: 'Kasturi Sharma',
+        Class: '8th',
+        DOB: '27-04-2008',
+        Category: 'Gen',
+        Father_Name: 'Parshotam Sharma',
+        Mother_Name: 'Reva Rani',
+        Aadhaar_No: '593974214828',
+        Account_No: '0684041000001517',
+        Contact_No: '9682558540',
+        IFSC_Code: 'JAKA0KALBAR',
+        Identification_Mark: 'Mole on neck'
+      },
+      {
+        Student_ID: 2,
+        Admission_No: 231,
+        Student_Name: 'Adrash Kumar',
+        Class: '8th',
+        DOB: '21-07-2010',
+        Category: 'OBC',
+        Father_Name: 'Yogesh Kumar',
+        Mother_Name: 'Ashu Rani',
+        Aadhaar_No: '593974214828',
+        Account_No: '0684041000001517',
+        Contact_No: '9697189784',
+        IFSC_Code: 'JAKA0KALBAR',
+        Identification_Mark: 'Black mole on right cheek'
+      }
+    ];
+    api.exportToExcel(templateData, 'beneficiary_template.xlsx');
   };
 
   // User CSV Filtering
@@ -358,10 +407,10 @@ export const DataPage: React.FC<DataPageProps> = ({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-steel/20 pb-4">
         <div>
           <h1 className="font-display font-bold text-28 text-ink tracking-tight">
-            Data Explorer &amp; Custom CSV Ingestion
+            Data Explorer &amp; Beneficiary Ingestion (CSV &amp; Excel)
           </h1>
           <p className="text-14 text-steel mt-0.5">
-            Upload custom CSV files to run NetworkX graph anomaly scans, or switch between existing datasets.
+            Upload custom CSV or Excel (.xlsx / .xls) files to run NetworkX graph anomaly scans, or inspect existing benchmarks.
           </p>
         </div>
 
@@ -375,8 +424,8 @@ export const DataPage: React.FC<DataPageProps> = ({
                 : 'text-steel-dark hover:text-ink'
             }`}
           >
-            <FileUp className="w-4 h-4 text-white" />
-            <span>Upload &amp; Scan Custom CSV</span>
+            <FileUp className="w-4 h-4" />
+            <span>Upload &amp; Scan CSV / Excel</span>
           </button>
 
           <button
@@ -405,7 +454,7 @@ export const DataPage: React.FC<DataPageProps> = ({
         </div>
       </div>
 
-      {/* -------------------- SECTION 1: UPLOAD CUSTOM CSV & RUN SCANS -------------------- */}
+      {/* -------------------- SECTION 1: UPLOAD CUSTOM CSV & EXCEL & RUN SCANS -------------------- */}
       {activeDatasetTab === 'upload_csv' && (
         <div className="space-y-6 animate-fadeIn">
           {/* Upload Dropzone Container */}
@@ -417,22 +466,22 @@ export const DataPage: React.FC<DataPageProps> = ({
                 </div>
                 <div>
                   <h2 className="font-display font-bold text-18 text-ink">
-                    Upload Beneficiary CSV &amp; Trigger Anomaly Scan
+                    Upload Beneficiary CSV / Excel &amp; Trigger Anomaly Scan
                   </h2>
                   <p className="text-12 text-steel">
-                    Upload your institution's raw applicant CSV. The NetworkX engine extracts entities and checks for multi-hop convergence.
+                    Upload your institution's raw applicant CSV or Excel (.xlsx, .xls) workbook. The NetworkX engine partitions entities and detects multi-hop convergence.
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
                   onClick={loadDemoCsvTemplate}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-12 font-semibold rounded bg-petrol-subtle text-petrol hover:bg-petrol-subtle/80 transition-colors"
                 >
                   <Zap className="w-3.5 h-3.5 text-petrol" />
-                  <span>Load Sample Test CSV (10 Students)</span>
+                  <span>Load Sample Test Data</span>
                 </button>
 
                 <button
@@ -441,7 +490,16 @@ export const DataPage: React.FC<DataPageProps> = ({
                   className="flex items-center gap-1.5 px-3 py-1.5 text-12 font-semibold rounded bg-mist text-steel hover:text-ink transition-colors"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>Download Format Template</span>
+                  <span>Download CSV Template</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDownloadExcelTemplate}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-12 font-semibold rounded bg-sea-subtle text-sea hover:bg-sea-subtle/80 transition-colors"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Download Excel (.xlsx) Template</span>
                 </button>
               </div>
             </div>
@@ -463,7 +521,7 @@ export const DataPage: React.FC<DataPageProps> = ({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv,text/csv"
+                accept=".csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
                 onChange={handleFileChange}
                 className="hidden"
               />
@@ -474,17 +532,26 @@ export const DataPage: React.FC<DataPageProps> = ({
                 </div>
 
                 {selectedFile ? (
-                  <div>
-                    <div className="font-display font-bold text-16 text-ink">{selectedFile.name}</div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="font-display font-bold text-16 text-ink">{selectedFile.name}</span>
+                      <span className={`px-2 py-0.5 rounded text-10 font-bold uppercase tracking-wider ${
+                        selectedFile.name.toLowerCase().endsWith('.xlsx') || selectedFile.name.toLowerCase().endsWith('.xls')
+                          ? 'bg-sea-subtle text-sea border border-sea/30'
+                          : 'bg-petrol-subtle text-petrol border border-petrol/30'
+                      }`}>
+                        {selectedFile.name.toLowerCase().endsWith('.xlsx') || selectedFile.name.toLowerCase().endsWith('.xls') ? 'EXCEL SPREADSHEET (.XLSX)' : 'CSV DATASET (.CSV)'}
+                      </span>
+                    </div>
                     <div className="text-12 text-steel">{(selectedFile.size / 1024).toFixed(1)} KB • Ready for NetworkX scanning</div>
                   </div>
                 ) : (
                   <div>
                     <div className="font-display font-semibold text-15 text-ink">
-                      Click to browse or drag &amp; drop a CSV file here
+                      Click to browse or drag &amp; drop a CSV or Excel file here
                     </div>
                     <div className="text-12 text-steel mt-0.5">
-                      Accepts standard formats: <code className="font-mono text-11 bg-mist px-1.5 py-0.5 rounded">Student_Name, Aadhaar_No, Account_No, Contact_No...</code>
+                      Supports <code className="font-mono text-11 bg-mist px-1.5 py-0.5 rounded">.csv</code>, <code className="font-mono text-11 bg-mist px-1.5 py-0.5 rounded">.xlsx</code>, and <code className="font-mono text-11 bg-mist px-1.5 py-0.5 rounded">.xls</code> spreadsheets with applicant columns (<code className="font-mono text-11">Student_Name, Aadhaar_No, Account_No, Contact_No...</code>)
                     </div>
                   </div>
                 )}
@@ -628,11 +695,32 @@ export const DataPage: React.FC<DataPageProps> = ({
 
               {/* Parsed Records Table Preview */}
               <div className="pt-3 border-t border-steel/15 space-y-2">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-display font-semibold text-14 text-ink">
-                    Parsed Records Preview ({uploadScanResult.records.length})
-                  </h4>
-                  <span className="text-11 text-steel">Identified columns matched successfully</span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h4 className="font-display font-semibold text-14 text-ink">
+                      Parsed Records Preview ({uploadScanResult.records.length})
+                    </h4>
+                    <span className="text-11 text-steel">Identified columns matched successfully</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleExportCSV('parsed_scan_records.csv')}
+                      className="flex items-center gap-1.5 px-2.5 py-1 text-11 font-semibold rounded bg-mist text-steel hover:text-ink transition-colors"
+                    >
+                      <Download className="w-3 h-3" />
+                      <span>Export CSV</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleExportExcel('parsed_scan_records.xlsx', uploadScanResult.records)}
+                      className="flex items-center gap-1.5 px-2.5 py-1 text-11 font-semibold rounded bg-sea-subtle text-sea hover:bg-sea-subtle/80 transition-colors"
+                    >
+                      <FileSpreadsheet className="w-3 h-3" />
+                      <span>Export Excel (.xlsx)</span>
+                    </button>
+                  </div>
                 </div>
 
                 <DataTable
@@ -939,13 +1027,20 @@ export const DataPage: React.FC<DataPageProps> = ({
               />
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => handleExportCSV('students.csv')}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-12 font-semibold rounded bg-petrol text-white hover:bg-petrol-hover transition-colors shadow-sm"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Export CSV ({filteredUserStudents.length})</span>
+              </button>
+              <button
+                onClick={() => handleExportExcel('students.xlsx', filteredUserStudents)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-12 font-semibold rounded bg-sea-subtle text-sea hover:bg-sea-subtle/80 transition-colors shadow-sm"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Export Excel (.xlsx)</span>
               </button>
             </div>
           </div>
@@ -971,13 +1066,22 @@ export const DataPage: React.FC<DataPageProps> = ({
                 </p>
               </div>
 
-              <button
-                onClick={() => handleExportCSV('synthetic_applications_sample.csv')}
-                className="flex items-center gap-2 px-4 py-2 text-12 font-semibold rounded bg-petrol text-white hover:bg-petrol-hover transition-colors shadow-sm"
-              >
-                <Download className="w-4 h-4" />
-                <span>Download Applications CSV</span>
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => handleExportCSV('synthetic_applications_sample.csv')}
+                  className="flex items-center gap-2 px-3 py-1.5 text-12 font-semibold rounded bg-petrol text-white hover:bg-petrol-hover transition-colors shadow-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download CSV</span>
+                </button>
+                <button
+                  onClick={() => handleExportExcel('synthetic_applications_sample.xlsx', syntheticApps)}
+                  className="flex items-center gap-2 px-3 py-1.5 text-12 font-semibold rounded bg-sea-subtle text-sea hover:bg-sea-subtle/80 transition-colors shadow-sm"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  <span>Download Excel (.xlsx)</span>
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
