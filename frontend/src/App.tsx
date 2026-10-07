@@ -7,6 +7,9 @@ import { ClusterDetailPage } from './pages/ClusterDetailPage';
 import { InstitutionsPage } from './pages/InstitutionsPage';
 import { CasesPage } from './pages/CasesPage';
 import { DataPage } from './pages/DataPage';
+import { ScanPage } from './pages/ScanPage';
+import { FairnessPage } from './pages/FairnessPage';
+import { AuditPage } from './pages/AuditPage';
 import { Toast, ToastMessage } from './components/Toast';
 import { StyleguideModal } from './components/StyleguideModal';
 import { DemoWalkthrough, DEMO_STEPS } from './components/DemoWalkthrough';
@@ -19,8 +22,9 @@ import {
   Sparkles,
   Palette,
   Shield,
-  HelpCircle,
-  ExternalLink,
+  FileUp,
+  Scale,
+  Lock,
   ChevronRight,
 } from 'lucide-react';
 
@@ -75,13 +79,11 @@ export function App() {
   const handleTakeAction = async (clusterId: string, payload: ActionPayload) => {
     const res = await api.takeAction(clusterId, payload);
     if (res.success) {
-      // Re-fetch clusters
       const updated = await api.getClusters();
       const updatedCsv = await api.getCsvClusters();
       setClusters(updated);
       setCsvClusters(updatedCsv);
 
-      // Verb matching toast
       const actionLabels: Record<string, string> = {
         verify: 'Records verified',
         assign: `Investigator assigned: ${payload.assignee || 'Officer on duty'}`,
@@ -137,6 +139,15 @@ export function App() {
     return res;
   };
 
+  const handleClusterInjected = (newCluster: Cluster) => {
+    setClusters((prev) => [newCluster, ...prev]);
+    addToast(
+      'alert',
+      `Red Team Pattern Injected: ${newCluster.id}`,
+      `Simulated adversarial ring detected and rendered in live graph (Score: ${newCluster.score}/100)`
+    );
+  };
+
   // Current cluster for detail view
   const currentCluster =
     clusters.find((c) => c.id.toLowerCase() === selectedClusterId.toLowerCase()) ||
@@ -165,11 +176,11 @@ export function App() {
             </div>
           </div>
 
-          {/* Navigation Items (5 items from DESIGN.md) */}
+          {/* Navigation Items (Sections from SCHOLARSHIP_SENTINEL_FINAL.md Section 7.5) */}
           <nav className="p-3 space-y-1">
             <button
               onClick={() => setActiveTab('overview')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded text-14 font-medium transition-colors ${
+              className={`w-full flex items-center gap-3 px-3.5 py-2 rounded text-13 font-medium transition-colors ${
                 activeTab === 'overview'
                   ? 'bg-petrol text-white shadow-sm font-semibold'
                   : 'text-steel-light hover:text-white hover:bg-harbor-surface'
@@ -181,7 +192,7 @@ export function App() {
 
             <button
               onClick={() => setActiveTab('clusters')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded text-14 font-medium transition-colors ${
+              className={`w-full flex items-center justify-between px-3.5 py-2 rounded text-13 font-medium transition-colors ${
                 activeTab === 'clusters' || activeTab === 'cluster-detail'
                   ? 'bg-petrol text-white shadow-sm font-semibold'
                   : 'text-steel-light hover:text-white hover:bg-harbor-surface'
@@ -192,13 +203,31 @@ export function App() {
                 <span>Clusters</span>
               </div>
               <span className="text-[11px] px-1.5 py-0.5 rounded bg-signal/30 text-signal font-bold">
-                12
+                {clusters.length}
+              </span>
+            </button>
+
+            {/* Dedicated Scan Custom CSV / Excel Section */}
+            <button
+              onClick={() => setActiveTab('scan')}
+              className={`w-full flex items-center justify-between px-3.5 py-2 rounded text-13 font-medium transition-colors ${
+                activeTab === 'scan'
+                  ? 'bg-petrol text-white shadow-sm font-semibold'
+                  : 'text-steel-light hover:text-white hover:bg-harbor-surface'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <FileUp className="w-4 h-4" strokeWidth={1.5} />
+                <span>Scan Custom File</span>
+              </div>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber/30 text-amber font-bold">
+                NEW
               </span>
             </button>
 
             <button
               onClick={() => setActiveTab('institutions')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded text-14 font-medium transition-colors ${
+              className={`w-full flex items-center justify-between px-3.5 py-2 rounded text-13 font-medium transition-colors ${
                 activeTab === 'institutions'
                   ? 'bg-petrol text-white shadow-sm font-semibold'
                   : 'text-steel-light hover:text-white hover:bg-harbor-surface'
@@ -209,13 +238,13 @@ export function App() {
                 <span>Institutions</span>
               </div>
               <span className="text-[11px] text-steel-light tabular-nums">
-                60
+                {institutions.length}
               </span>
             </button>
 
             <button
               onClick={() => setActiveTab('cases')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded text-14 font-medium transition-colors ${
+              className={`w-full flex items-center gap-3 px-3.5 py-2 rounded text-13 font-medium transition-colors ${
                 activeTab === 'cases'
                   ? 'bg-petrol text-white shadow-sm font-semibold'
                   : 'text-steel-light hover:text-white hover:bg-harbor-surface'
@@ -226,8 +255,37 @@ export function App() {
             </button>
 
             <button
+              onClick={() => setActiveTab('fairness')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2 rounded text-13 font-medium transition-colors ${
+                activeTab === 'fairness'
+                  ? 'bg-petrol text-white shadow-sm font-semibold'
+                  : 'text-steel-light hover:text-white hover:bg-harbor-surface'
+              }`}
+            >
+              <Scale className="w-4 h-4" strokeWidth={1.5} />
+              <span>Fairness Audit</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('audit')}
+              className={`w-full flex items-center justify-between px-3.5 py-2 rounded text-13 font-medium transition-colors ${
+                activeTab === 'audit'
+                  ? 'bg-petrol text-white shadow-sm font-semibold'
+                  : 'text-steel-light hover:text-white hover:bg-harbor-surface'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Lock className="w-4 h-4" strokeWidth={1.5} />
+                <span>DB, Audit &amp; Rails</span>
+              </div>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-sea/25 text-sea-light font-bold">
+                API
+              </span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('data')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded text-14 font-medium transition-colors ${
+              className={`w-full flex items-center justify-between px-3.5 py-2 rounded text-13 font-medium transition-colors ${
                 activeTab === 'data'
                   ? 'bg-petrol text-white shadow-sm font-semibold'
                   : 'text-steel-light hover:text-white hover:bg-harbor-surface'
@@ -238,7 +296,7 @@ export function App() {
                 <span>Data Explorer</span>
               </div>
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-sea/20 text-sea font-medium">
-                CSV
+                Mixed
               </span>
             </button>
           </nav>
@@ -247,7 +305,7 @@ export function App() {
           <div className="px-3 py-2">
             <button
               onClick={() => handleOpenCluster('CL-104')}
-              className={`w-full p-3 rounded-lg border text-left transition-all ${
+              className={`w-full p-2.5 rounded-lg border text-left transition-all ${
                 activeTab === 'cluster-detail' && selectedClusterId === 'CL-104'
                   ? 'bg-harbor-surface border-signal shadow-sm'
                   : 'bg-harbor-muted border-harbor-border hover:border-steel/50'
@@ -261,7 +319,7 @@ export function App() {
                   Score 87
                 </span>
               </div>
-              <p className="text-[11px] text-steel-light mt-1 line-clamp-1">
+              <p className="text-[11px] text-steel-light mt-0.5 line-clamp-1">
                 Shared bank BA103 &amp; Mobile
               </p>
             </button>
@@ -269,7 +327,7 @@ export function App() {
         </div>
 
         {/* Rail Footer Controls */}
-        <div className="p-4 border-t border-harbor-border space-y-3">
+        <div className="p-4 border-t border-harbor-border space-y-2.5">
           {/* Demo Mode Toggle */}
           <div className="p-2.5 rounded-lg bg-harbor-surface border border-harbor-border text-12">
             <div className="flex items-center justify-between mb-1">
@@ -292,7 +350,7 @@ export function App() {
           {/* Styleguide Button */}
           <button
             onClick={() => setIsStyleguideOpen(true)}
-            className="w-full flex items-center justify-between px-3 py-2 rounded bg-harbor-surface/60 border border-harbor-border text-steel-light hover:text-white hover:bg-harbor-surface transition-colors text-12"
+            className="w-full flex items-center justify-between px-3 py-1.5 rounded bg-harbor-surface/60 border border-harbor-border text-steel-light hover:text-white hover:bg-harbor-surface transition-colors text-11"
           >
             <div className="flex items-center gap-2">
               <Palette className="w-3.5 h-3.5 text-sea" />
@@ -323,6 +381,7 @@ export function App() {
                 institutions={institutions}
                 onOpenCluster={handleOpenCluster}
                 onNavigateTab={(tab) => setActiveTab(tab)}
+                onClusterInjected={handleClusterInjected}
               />
             )}
 
@@ -342,12 +401,19 @@ export function App() {
               />
             )}
 
+            {activeTab === 'scan' && (
+              <ScanPage
+                onOpenCluster={handleOpenCluster}
+                onClusterScanned={(scannedClusters) => {
+                  setClusters((prev) => [...scannedClusters, ...prev]);
+                }}
+              />
+            )}
+
             {activeTab === 'institutions' && (
               <InstitutionsPage
                 institutions={institutions}
-                onSelectInstitution={(inst) => {
-                  // Filter clusters or show alert
-                }}
+                onSelectInstitution={() => {}}
               />
             )}
 
@@ -358,6 +424,10 @@ export function App() {
                 onTakeAction={handleTakeAction}
               />
             )}
+
+            {activeTab === 'fairness' && <FairnessPage />}
+
+            {activeTab === 'audit' && <AuditPage />}
 
             {activeTab === 'data' && (
               <DataPage

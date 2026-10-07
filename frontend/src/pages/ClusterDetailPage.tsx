@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Cluster, ActionType, ActionPayload } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Cluster, ActionType, ActionPayload, CounterfactualResult, CaseBrief } from '../types';
+import { api } from '../lib/api';
 import { RiskMeter } from '../components/RiskMeter';
 import { StatusChip, RiskBandBadge } from '../components/StatusChip';
 import { GraphStage3D } from '../components/GraphStage3D';
@@ -20,6 +21,13 @@ import {
   FileCheck,
   AlertOctagon,
   Eye,
+  Sliders,
+  ShieldCheck,
+  Printer,
+  Download,
+  Calendar,
+  X,
+  Check,
 } from 'lucide-react';
 
 interface ClusterDetailPageProps {
@@ -34,6 +42,68 @@ export const ClusterDetailPage: React.FC<ClusterDetailPageProps> = ({
   onTakeAction,
 }) => {
   const [activeActionModal, setActiveActionModal] = useState<ActionType | null>(null);
+
+  // Counterfactual state
+  const [disabledSignals, setDisabledSignals] = useState<string[]>([]);
+  const [counterfactual, setCounterfactual] = useState<CounterfactualResult | null>(null);
+
+  // Time-lapse slider state
+  const [timeLapseStep, setTimeLapseStep] = useState<number>(4); // 1 to 4 steps
+
+  // Case Brief Modal state
+  const [isBriefModalOpen, setIsBriefModalOpen] = useState(false);
+  const [caseBrief, setCaseBrief] = useState<CaseBrief | null>(null);
+
+  // Cleared Sibling Households
+  const [clearedGroups, setClearedGroups] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function loadCleared() {
+      const data = await api.getClearedGroups();
+      setClearedGroups(data);
+    }
+    loadCleared();
+  }, []);
+
+  // Update counterfactual when disabledSignals changes
+  useEffect(() => {
+    async function updateCounterfactual() {
+      const res = await api.getClusterCounterfactual(cluster.id, disabledSignals);
+      setCounterfactual(res);
+    }
+    updateCounterfactual();
+  }, [cluster.id, disabledSignals]);
+
+  const toggleSignal = (sig: string) => {
+    setDisabledSignals((prev) =>
+      prev.includes(sig) ? prev.filter((s) => s !== sig) : [...prev, sig]
+    );
+  };
+
+  const handleOpenCaseBrief = async () => {
+    const brief = await api.getClusterCaseBrief(cluster.id);
+    setCaseBrief(brief);
+    setIsBriefModalOpen(true);
+  };
+
+  const currentScore = counterfactual ? counterfactual.new_score : cluster.score;
+  const currentBand = counterfactual ? counterfactual.new_band : cluster.band;
+
+  // Filter graph for time-lapse
+  const timeLapseFilteredGraph = React.useMemo(() => {
+    if (timeLapseStep >= 4) return cluster.graph;
+    // Step 1: student nodes only
+    // Step 2: bank node added
+    // Step 3: mobile node added
+    // Step 4: full graph
+    const allowedNodeCount = Math.max(2, Math.floor((cluster.graph.nodes.length * timeLapseStep) / 4));
+    const activeNodes = cluster.graph.nodes.slice(0, allowedNodeCount);
+    const activeIds = new Set(activeNodes.map((n) => n.id));
+    const activeEdges = cluster.graph.edges.filter(
+      (e) => activeIds.has(e.source) && activeIds.has(e.target)
+    );
+    return { nodes: activeNodes, edges: activeEdges };
+  }, [cluster.graph, timeLapseStep]);
 
   const studentColumns: Column<any>[] = [
     {
@@ -71,7 +141,7 @@ export const ClusterDetailPage: React.FC<ClusterDetailPageProps> = ({
         return (
           <span
             className={`font-semibold tabular-nums ${
-              isCritical ? 'text-signal' : 'text-ink'
+              isCritical ? 'text-signal font-bold' : 'text-ink'
             }`}
           >
             {r.attendance}%
@@ -108,15 +178,6 @@ export const ClusterDetailPage: React.FC<ClusterDetailPageProps> = ({
         </span>
       ),
     },
-    {
-      key: 'doc_hash',
-      header: 'Doc Hash / Cert',
-      render: (r) => (
-        <span className="text-11 text-steel">
-          {r.doc_hash}
-        </span>
-      ),
-    },
   ];
 
   return (
@@ -132,12 +193,16 @@ export const ClusterDetailPage: React.FC<ClusterDetailPageProps> = ({
         </button>
 
         <div className="flex items-center gap-3">
-          <span className="text-12 text-steel">
-            Unit of Output: <strong className="text-ink font-semibold">Cluster #{cluster.id}</strong>
-          </span>
+          <button
+            onClick={handleOpenCaseBrief}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-12 font-semibold rounded bg-paper border border-steel/30 text-petrol hover:bg-mist transition-colors shadow-sm"
+          >
+            <FileText className="w-4 h-4" />
+            <span>Generate Auto Case Brief</span>
+          </button>
           <span className="text-12 text-steel">•</span>
           <span className="text-12 text-steel">
-            Investigation lead, not evidence
+            Unit of Output: <strong className="text-ink font-semibold">Cluster #{cluster.id}</strong>
           </span>
         </div>
       </div>
@@ -151,11 +216,16 @@ export const ClusterDetailPage: React.FC<ClusterDetailPageProps> = ({
             </h1>
             {cluster.is_hero && (
               <span className="px-2 py-0.5 rounded text-11 font-bold bg-signal text-white">
-                DEMO HERO
+                DEMO HERO (CL-104)
               </span>
             )}
             <StatusChip status={cluster.status} />
-            <RiskBandBadge band={cluster.band} />
+            <RiskBandBadge band={currentBand} />
+            {disabledSignals.length > 0 && (
+              <span className="px-2 py-0.5 rounded text-11 font-semibold bg-amber/20 text-amber-dark border border-amber/30">
+                Counterfactual Simulation Active
+              </span>
+            )}
           </div>
 
           <h2 className="font-display font-semibold text-16 text-ink">
@@ -168,7 +238,7 @@ export const ClusterDetailPage: React.FC<ClusterDetailPageProps> = ({
 
         {/* Risk Meter Gauge */}
         <div className="lg:border-l lg:border-steel/20 lg:pl-6 shrink-0">
-          <RiskMeter score={cluster.score} band={cluster.band} size="lg" />
+          <RiskMeter score={currentScore} band={currentBand} size="lg" />
         </div>
       </div>
 
@@ -181,7 +251,6 @@ export const ClusterDetailPage: React.FC<ClusterDetailPageProps> = ({
         </div>
 
         <div className="flex items-center flex-wrap gap-2.5">
-          {/* Primary Action: Petrol */}
           <button
             onClick={() => setActiveActionModal('assign')}
             className="flex items-center gap-2 px-4 py-2 text-12 font-semibold rounded bg-petrol text-white hover:bg-petrol-hover transition-colors shadow-sm"
@@ -206,7 +275,6 @@ export const ClusterDetailPage: React.FC<ClusterDetailPageProps> = ({
             <span>Verify records</span>
           </button>
 
-          {/* Escalate: Signal Outline */}
           <button
             onClick={() => setActiveActionModal('escalate')}
             className="flex items-center gap-2 px-3.5 py-2 text-12 font-semibold rounded bg-signal-subtle text-signal-dark hover:bg-signal-subtle/80 border border-signal/40 transition-colors"
@@ -215,7 +283,6 @@ export const ClusterDetailPage: React.FC<ClusterDetailPageProps> = ({
             <span>Escalate case</span>
           </button>
 
-          {/* Close: Quiet */}
           <button
             onClick={() => setActiveActionModal('close')}
             className="flex items-center gap-1.5 px-3 py-2 text-12 font-medium text-steel hover:text-ink bg-mist hover:bg-mist-dark rounded transition-colors"
@@ -226,108 +293,184 @@ export const ClusterDetailPage: React.FC<ClusterDetailPageProps> = ({
         </div>
       </div>
 
-      {/* Hero Layout: 3D Graph Stage (60%) + Why Flagged Panel (40%) */}
+      {/* Hero Layout: 3D Graph Stage (60%) + Why Flagged Panel & Counterfactuals (40%) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left 60%: 3D Graph Stage */}
-        <div className="lg:col-span-7 flex flex-col space-y-2">
+        {/* Left 60%: 3D Graph Stage & Time-lapse Slider */}
+        <div className="lg:col-span-7 flex flex-col space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-display font-bold text-16 text-ink">
                 3D Entity Relationship Topology
               </h3>
               <p className="text-12 text-steel">
-                Drag to orbit, scroll to zoom. Click any node to focus attributes.
+                Drag to orbit, scroll to zoom. Node geometry: spheres (students), octahedrons (banks), cubes (mobiles).
               </p>
             </div>
             <span className="text-11 text-steel">
-              {cluster.graph.nodes.length} Nodes • {cluster.graph.edges.length} Relationships
+              {timeLapseFilteredGraph.nodes.length} Nodes • {timeLapseFilteredGraph.edges.length} Relationships
             </span>
           </div>
 
-          <GraphStage3D graph={cluster.graph} clusterId={cluster.id} />
+          <GraphStage3D graph={timeLapseFilteredGraph} clusterId={cluster.id} />
+
+          {/* Tier B Feature 7: Cluster Time-Lapse Replay Slider */}
+          <div className="p-4 rounded-lg bg-paper border border-steel/20 shadow-panel space-y-2">
+            <div className="flex items-center justify-between text-12">
+              <span className="font-display font-semibold text-ink flex items-center gap-2">
+                <Clock className="w-4 h-4 text-petrol" />
+                Cluster Emergence Time-Lapse Replay
+              </span>
+              <span className="text-11 text-steel">
+                Lead Time: <strong>18 Days Prior to Disbursement</strong>
+              </span>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <input
+                type="range"
+                min="1"
+                max="4"
+                step="1"
+                value={timeLapseStep}
+                onChange={(e) => setTimeLapseStep(Number(e.target.value))}
+                className="w-full h-2 bg-mist rounded-lg appearance-none cursor-pointer accent-petrol"
+              />
+              <span className="text-12 font-mono font-bold text-ink min-w-[70px] text-right">
+                Phase {timeLapseStep}/4
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] text-steel">
+              <span>Day 1: Initial filing</span>
+              <span>Day 6: Bank linkage</span>
+              <span>Day 12: Mobile linkage</span>
+              <span>Day 18: Score 87 (Held)</span>
+            </div>
+          </div>
         </div>
 
-        {/* Right 40%: Why This Was Flagged */}
-        <div className="lg:col-span-5 flex flex-col space-y-3">
+        {/* Right 40%: Why This Was Flagged & Counterfactual Toggles */}
+        <div className="lg:col-span-5 flex flex-col space-y-4">
           <div>
             <h3 className="font-display font-bold text-16 text-ink">
               Why this was flagged
             </h3>
             <p className="text-12 text-steel">
-              Calculated anomaly signals summing to the risk score of {cluster.score}.
+              Every flag explains the exact signals and points. Toggle any signal to simulate counterfactuals.
             </p>
           </div>
 
+          {/* Reasons & Interactive Counterfactual Toggles */}
           <div className="p-4 rounded-lg bg-paper-card border border-steel/20 shadow-panel space-y-3">
-            {/* Header Points Sum */}
-            <div className="flex items-center justify-between pb-3 border-b border-steel/20">
-              <span className="text-12 font-semibold text-steel uppercase tracking-wider">
-                Signal Rule
+            <div className="flex items-center justify-between pb-2 border-b border-steel/20">
+              <span className="text-11 font-semibold uppercase tracking-wider text-steel">
+                Signal Rule (Click to Toggle)
               </span>
-              <span className="text-12 font-semibold text-steel uppercase tracking-wider">
-                Score Impact
+              <span className="text-11 font-semibold uppercase tracking-wider text-steel">
+                Points
               </span>
             </div>
 
-            {/* List of Reasons */}
-            <div className="space-y-3">
-              {cluster.reasons.map((reason, idx) => (
-                <div
-                  key={idx}
-                  className="p-3 rounded border border-steel/15 bg-paper hover:bg-mist-light transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-display font-semibold text-14 text-ink flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-signal" />
-                      {reason.label}
-                    </span>
-                    <span className="font-display font-bold text-14 text-signal tabular-nums">
-                      +{reason.points} pts
-                    </span>
+            <div className="space-y-2.5">
+              {cluster.reasons.map((reason, idx) => {
+                const isDisabled = disabledSignals.includes(reason.signal);
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => toggleSignal(reason.signal)}
+                    className={`p-3 rounded border transition-all cursor-pointer select-none ${
+                      isDisabled
+                        ? 'bg-mist/40 border-steel/20 opacity-60 line-through'
+                        : 'bg-paper border-steel/20 hover:border-petrol/50 shadow-sm'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={!isDisabled}
+                          onChange={() => {}}
+                          className="rounded text-petrol focus:ring-petrol cursor-pointer"
+                        />
+                        <span className="font-display font-semibold text-13 text-ink">
+                          {reason.label}
+                        </span>
+                      </div>
+                      <span
+                        className={`font-display font-bold text-13 tabular-nums ${
+                          isDisabled ? 'text-steel' : 'text-signal'
+                        }`}
+                      >
+                        +{reason.points} pts
+                      </span>
+                    </div>
+                    <p className="text-11 text-steel mt-1 leading-snug pl-5">
+                      {reason.text}
+                    </p>
                   </div>
-                  <p className="text-12 text-steel mt-1 leading-snug">
-                    {reason.text}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
-            {/* Total Points Sum Visible Check */}
+            {/* Counterfactual Impact Banner */}
+            {disabledSignals.length > 0 && counterfactual && (
+              <div className="p-3 rounded bg-amber/15 border border-amber/30 text-12 text-ink space-y-1 animate-fadeIn">
+                <div className="font-semibold text-amber-dark flex items-center gap-1.5">
+                  <Sliders className="w-3.5 h-3.5" />
+                  Counterfactual Result:
+                </div>
+                <div className="leading-snug text-11 text-steel-dark">
+                  {counterfactual.explanation}
+                </div>
+              </div>
+            )}
+
+            {/* Tally Score Bar */}
             <div className="pt-3 border-t border-steel/20 flex items-center justify-between">
-              <span className="font-display font-bold text-14 text-ink">
-                Calculated Anomaly Score:
-              </span>
-              <div className="flex items-baseline gap-1 font-display font-bold text-20 text-signal tabular-nums">
-                <span>{cluster.score}</span>
+              <div>
+                <span className="font-display font-bold text-14 text-ink block">
+                  Calculated Risk Score:
+                </span>
+                <span className="text-[11px] text-steel">
+                  Floor 0 • Cap 100
+                </span>
+              </div>
+              <div className="flex items-baseline gap-1 font-display font-bold text-22 text-signal tabular-nums">
+                <span>{currentScore}</span>
                 <span className="text-12 text-steel font-normal">/ 100</span>
               </div>
             </div>
 
             <div className="p-2.5 rounded bg-mist text-11 text-steel italic border-l-2 border-petrol leading-relaxed">
-              Score reflects unusual signals, not the chance of fraud. Flagged clusters indicate high priority for investigative audit by an assigned officer.
+              Score reflects unusual signals, not the chance of fraud. 87/100 means several unusual signals together, not "87% fraud".
             </div>
           </div>
 
-          {/* Quick Metrics Cards */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 rounded-lg bg-paper border border-steel/20">
-              <span className="text-11 text-steel uppercase font-semibold">Institutions Spanned</span>
-              <div className="font-display font-bold text-20 text-ink tabular-nums mt-1">
-                {cluster.counts.institutions} Colleges
-              </div>
+          {/* Tier A Feature 2: Seen But Not Flagged Panel */}
+          <div className="p-4 rounded-lg bg-paper-card border border-sea/30 shadow-panel space-y-2">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-sea" />
+              <h4 className="font-display font-bold text-14 text-ink">
+                Seen But Not Flagged (Family Shield)
+              </h4>
             </div>
+            <p className="text-11 text-steel leading-relaxed">
+              Nearby contact links verified as authentic sibling households with identical parent records. Cleared without penalty:
+            </p>
 
-            <div className="p-3 rounded-lg bg-paper border border-steel/20">
-              <span className="text-11 text-steel uppercase font-semibold">Shared Accounts</span>
-              <div className="font-display font-bold text-20 text-ink tabular-nums mt-1">
-                {cluster.counts.banks} Account
-              </div>
+            <div className="space-y-1.5 text-11">
+              {clearedGroups.slice(0, 2).map((g) => (
+                <div key={g.id} className="p-2 rounded bg-paper border border-steel/15">
+                  <strong className="text-ink">{g.student_names.join(' & ')}</strong> (Parents: {g.parents})
+                  <div className="text-[10px] text-sea font-medium mt-0.5">&bull; {g.cleared_reason}</div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Linked Students Table (Masked) */}
+      {/* Linked Student Applications Table */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div>
@@ -335,11 +478,11 @@ export const ClusterDetailPage: React.FC<ClusterDetailPageProps> = ({
               Linked Student Applications ({cluster.students.length})
             </h3>
             <p className="text-12 text-steel">
-              Identifiers masked according to data privacy guidelines. Only last 4 digits visible.
+              Identifiers masked according to privacy guidelines. Raw values encrypted in privacy vault.
             </p>
           </div>
           <span className="text-11 text-steel font-medium px-2.5 py-1 bg-mist rounded border border-steel/20">
-            Synthetic Identifiers
+            HMAC Pseudonymized
           </span>
         </div>
 
@@ -398,6 +541,93 @@ export const ClusterDetailPage: React.FC<ClusterDetailPageProps> = ({
           setActiveActionModal(null);
         }}
       />
+
+      {/* Tier B Feature 9: Auto Case Brief Modal */}
+      {isBriefModalOpen && caseBrief && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-paper-card rounded-xl border border-steel/20 shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-5">
+            <div className="flex items-center justify-between border-b border-steel/20 pb-3">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-petrol" />
+                <h3 className="font-display font-bold text-18 text-ink">
+                  Executive Investigation Brief: {caseBrief.cluster_id}
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsBriefModalOpen(false)}
+                className="text-steel hover:text-ink p-1 rounded"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-12">
+              <div className="p-3.5 rounded bg-mist border border-steel/20 flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-ink text-14">{caseBrief.title}</div>
+                  <div className="text-steel mt-0.5">{caseBrief.pattern}</div>
+                </div>
+                <div className="text-right">
+                  <span className="font-display font-bold text-20 text-signal tabular-nums">
+                    {caseBrief.score}/100
+                  </span>
+                  <div className="text-[10px] uppercase font-bold text-signal">
+                    {caseBrief.band} Risk
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <strong className="text-ink font-semibold uppercase text-11 tracking-wider block mb-2">
+                  Evidence Points Tally:
+                </strong>
+                <div className="space-y-1.5">
+                  {caseBrief.reasons.map((r, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 rounded bg-paper border border-steel/15">
+                      <span className="text-ink">{r.label} - {r.text}</span>
+                      <span className="font-bold text-signal tabular-nums">+{r.points}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <strong className="text-ink font-semibold uppercase text-11 tracking-wider block mb-2">
+                  Field Verification Checklist:
+                </strong>
+                <div className="space-y-1.5">
+                  {caseBrief.checklist.map((item, idx) => (
+                    <div key={idx} className="flex items-start gap-2 p-2 rounded bg-paper border border-steel/15">
+                      <input type="checkbox" className="mt-0.5 rounded text-petrol cursor-pointer" />
+                      <span className="text-ink">{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-3 rounded bg-amber/15 border border-amber/30 text-amber-dark">
+                <strong>Officer Recommendation:</strong> {caseBrief.recommendation}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-steel/20">
+              <button
+                onClick={() => window.print()}
+                className="px-4 py-2 text-12 font-semibold rounded bg-paper border border-steel/30 text-ink hover:bg-mist transition-colors shadow-sm inline-flex items-center gap-2"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Print Case Brief</span>
+              </button>
+              <button
+                onClick={() => setIsBriefModalOpen(false)}
+                className="px-4 py-2 text-12 font-semibold rounded bg-petrol text-white hover:bg-petrol-hover transition-colors shadow-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

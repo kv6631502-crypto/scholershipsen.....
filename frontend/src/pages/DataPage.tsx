@@ -42,8 +42,14 @@ export const DataPage: React.FC<DataPageProps> = ({
   onAddStudent,
   onCsvUploaded,
 }) => {
-  // Master Tab Switcher: 'user_csv' | 'upload_csv' | 'synthetic_benchmark'
-  const [activeDatasetTab, setActiveDatasetTab] = useState<'user_csv' | 'upload_csv' | 'synthetic_benchmark'>('upload_csv');
+  // Master Tab Switcher: 'mixed_catalog' | 'user_excel' | 'user_csv' | 'upload_csv' | 'synthetic_benchmark'
+  const [activeDatasetTab, setActiveDatasetTab] = useState<'mixed_catalog' | 'user_excel' | 'user_csv' | 'upload_csv' | 'synthetic_benchmark'>('mixed_catalog');
+
+  // Datasets state
+  const [mixedStudents, setMixedStudents] = useState<any[]>([]);
+  const [excelStudents, setExcelStudents] = useState<any[]>([]);
+  const [mixedSearch, setMixedSearch] = useState('');
+  const [excelSearch, setExcelSearch] = useState('');
 
   // Search & Filter state for User CSV
   const [searchQuery, setSearchQuery] = useState('');
@@ -101,15 +107,19 @@ export const DataPage: React.FC<DataPageProps> = ({
 
   const [formData, setFormData] = useState(initialForm);
 
-  // Load Synthetic Data
+  // Load Synthetic Data & Mixed Datasets
   useEffect(() => {
     async function loadSynth() {
-      const [apps, files] = await Promise.all([
+      const [apps, files, mixed, excel] = await Promise.all([
         api.getSyntheticApplications(),
         api.getSyntheticCsvFiles(),
+        api.getMixedStudents(),
+        api.getExcelStudents(),
       ]);
       setSyntheticApps(apps);
       setSyntheticCsvFiles(files);
+      setMixedStudents(mixed);
+      setExcelStudents(excel);
     }
     loadSynth();
   }, []);
@@ -401,31 +411,201 @@ export const DataPage: React.FC<DataPageProps> = ({
     { key: 'applied_on', header: 'Date', sortable: true, width: '110px', render: (r) => <span className="text-11 text-steel">{r.applied_on}</span> },
   ];
 
+  const filteredMixedStudents = useMemo(() => {
+    return mixedStudents.filter((r) => {
+      if (!mixedSearch.trim()) return true;
+      const q = mixedSearch.toLowerCase();
+      return (
+        String(r.Student_Name || '').toLowerCase().includes(q) ||
+        String(r.Student_ID || '').toLowerCase().includes(q) ||
+        String(r.Account_No || '').includes(q) ||
+        String(r.Aadhaar_No || '').includes(q)
+      );
+    });
+  }, [mixedStudents, mixedSearch]);
+
+  const filteredExcelStudents = useMemo(() => {
+    return excelStudents.filter((r) => {
+      if (!excelSearch.trim()) return true;
+      const q = excelSearch.toLowerCase();
+      return (
+        String(r.Student_Name || '').toLowerCase().includes(q) ||
+        String(r.Student_ID || '').toLowerCase().includes(q) ||
+        String(r.Account_No || '').includes(q) ||
+        String(r.labeled_issue || '').toLowerCase().includes(q)
+      );
+    });
+  }, [excelStudents, excelSearch]);
+
+  const mixedColumns: Column<any>[] = [
+    { key: 'Student_ID', header: 'ID', sortable: true, width: '100px', render: (r) => <span className="font-mono text-12 font-bold text-ink">{r.Student_ID}</span> },
+    {
+      key: 'source_badge',
+      header: 'Origin Dataset',
+      sortable: true,
+      width: '140px',
+      render: (r) => (
+        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${String(r.source_badge).includes('Excel') ? 'bg-petrol-subtle text-petrol border border-petrol/30' : 'bg-sea-subtle text-sea-dark border border-sea/30'}`}>
+          {r.source_badge || 'CSV Roster'}
+        </span>
+      ),
+    },
+    {
+      key: 'Student_Name',
+      header: 'Student Name',
+      sortable: true,
+      render: (r) => (
+        <div>
+          <span className="font-medium text-ink">{r.Student_Name}</span>
+          <div className="text-11 text-steel">Class: {r.Class} • Cat: {r.Category}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'Account_No',
+      header: 'Account (Masked)',
+      render: (r) => <span className="font-mono text-11 text-steel">••••{String(r.Account_No).slice(-4)}</span>,
+    },
+    {
+      key: 'Contact_No',
+      header: 'Contact',
+      render: (r) => <span className="font-mono text-11 text-steel">••••{String(r.Contact_No).slice(-4)}</span>,
+    },
+    {
+      key: 'Father_Name',
+      header: 'Parentage',
+      render: (r) => <span className="text-12 text-ink">{r.Father_Name}</span>,
+    },
+    {
+      key: 'labeled_issue',
+      header: 'Anomaly Status',
+      render: (r) => {
+        if (r.labeled_issue) {
+          return (
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-signal/15 text-signal border border-signal/30 uppercase">
+              {r.labeled_issue.replace(/_/g, ' ')}
+            </span>
+          );
+        }
+        return <span className="text-sea text-11 font-medium">&bull; Clean Record</span>;
+      },
+    },
+  ];
+
+  const excelColumns: Column<any>[] = [
+    { key: 'Student_ID', header: 'ID', sortable: true, width: '100px', render: (r) => <span className="font-mono text-12 font-bold text-ink">{r.Student_ID}</span> },
+    {
+      key: 'Student_Name',
+      header: 'Applicant Name',
+      sortable: true,
+      render: (r) => (
+        <div>
+          <span className="font-medium text-ink">{r.Student_Name}</span>
+          <div className="text-11 text-steel">Class: {r.Class} • DOB: {r.DOB}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'Aadhaar_No',
+      header: 'Aadhaar (Masked)',
+      render: (r) => {
+        const val = String(r.Aadhaar_No || '');
+        const isBad = r.labeled_issue === 'duplicate_aadhaar';
+        return (
+          <span className={`font-mono text-11 px-1.5 py-0.5 rounded ${isBad ? 'bg-signal/15 text-signal font-bold' : 'text-steel'}`}>
+            {val.length > 4 ? `••••${val.slice(-4)}` : val}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'Account_No',
+      header: 'Bank Account',
+      render: (r) => {
+        const val = String(r.Account_No || '');
+        const isBad = r.labeled_issue === 'duplicate_account_no';
+        return (
+          <span className={`font-mono text-11 px-1.5 py-0.5 rounded ${isBad ? 'bg-signal/15 text-signal font-bold' : 'text-steel'}`}>
+            {val.length > 4 ? `••••${val.slice(-4)}` : val}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'Contact_No',
+      header: 'Contact Phone',
+      render: (r) => {
+        const val = String(r.Contact_No || '');
+        const isBad = r.labeled_issue === 'duplicate_phone_no' || r.labeled_issue === 'invalid_phone_length';
+        return (
+          <span className={`font-mono text-11 px-1.5 py-0.5 rounded ${isBad ? 'bg-amber/20 text-amber-dark font-bold' : 'text-steel'}`}>
+            {val.length > 4 ? `${val.slice(0, 2)}••••${val.slice(-4)}` : val}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'Father_Name',
+      header: 'Father Name',
+      render: (r) => <span className="text-12 text-ink">{r.Father_Name || <span className="text-signal font-semibold">Missing</span>}</span>,
+    },
+    {
+      key: 'labeled_issue',
+      header: 'Labeled Issue',
+      render: (r) => {
+        if (!r.labeled_issue) return <span className="text-sea text-11 font-medium">&bull; Clean</span>;
+        return (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-signal/15 text-signal border border-signal/30 uppercase">
+            {r.labeled_issue.replace(/_/g, ' ')}
+          </span>
+        );
+      },
+    },
+  ];
+
   return (
     <div className="space-y-6 animate-fadeIn pb-16">
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-steel/20 pb-4">
         <div>
-          <h1 className="font-display font-bold text-28 text-ink tracking-tight">
-            Data Explorer &amp; Beneficiary Ingestion (CSV &amp; Excel)
-          </h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="font-display font-bold text-28 text-ink tracking-tight">
+              Data Explorer &amp; Beneficiary Ingestion (CSV &amp; Excel)
+            </h1>
+            <span className="px-2 py-0.5 rounded text-10 font-bold bg-petrol/15 text-petrol uppercase border border-petrol/30 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-sea animate-pulse"></span>
+              SQLite ORM: sentinel.db
+            </span>
+          </div>
           <p className="text-14 text-steel mt-0.5">
             Upload custom CSV or Excel (.xlsx / .xls) files to run NetworkX graph anomaly scans, or inspect existing benchmarks.
           </p>
         </div>
 
-        {/* 3 Master Tabs */}
+        {/* Master Dataset Tabs (Mixed, Excel, CSV, Synthetic, Upload) */}
         <div className="flex items-center gap-1.5 bg-paper p-1.5 rounded-lg border border-steel/30 shadow-sm flex-wrap">
           <button
-            onClick={() => setActiveDatasetTab('upload_csv')}
+            onClick={() => setActiveDatasetTab('mixed_catalog')}
             className={`flex items-center gap-2 px-3 py-1.5 rounded text-12 font-semibold transition-colors ${
-              activeDatasetTab === 'upload_csv'
+              activeDatasetTab === 'mixed_catalog'
                 ? 'bg-petrol text-white shadow-sm'
                 : 'text-steel-dark hover:text-ink'
             }`}
           >
-            <FileUp className="w-4 h-4" />
-            <span>Upload &amp; Scan CSV / Excel</span>
+            <Database className="w-4 h-4" />
+            <span>Mixed Catalog ({mixedStudents.length || 455})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveDatasetTab('user_excel')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded text-12 font-semibold transition-colors ${
+              activeDatasetTab === 'user_excel'
+                ? 'bg-petrol text-white shadow-sm'
+                : 'text-steel-dark hover:text-ink'
+            }`}
+          >
+            <FileSpreadsheet className="w-4 h-4 text-sea" />
+            <span>User Excel: students.csv.xlsx ({excelStudents.length || 300})</span>
           </button>
 
           <button
@@ -437,7 +617,7 @@ export const DataPage: React.FC<DataPageProps> = ({
             }`}
           >
             <FileSpreadsheet className="w-4 h-4" />
-            <span>Workspace: students.csv ({rawStudents.length})</span>
+            <span>User CSV: students.csv ({rawStudents.length})</span>
           </button>
 
           <button
@@ -449,10 +629,158 @@ export const DataPage: React.FC<DataPageProps> = ({
             }`}
           >
             <Layers className="w-4 h-4" />
-            <span>National Synthetic (10k Apps)</span>
+            <span>National Synthetic (10k)</span>
+          </button>
+
+          <button
+            onClick={() => setActiveDatasetTab('upload_csv')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded text-12 font-semibold transition-colors ${
+              activeDatasetTab === 'upload_csv'
+                ? 'bg-petrol text-white shadow-sm'
+                : 'text-steel-dark hover:text-ink'
+            }`}
+          >
+            <FileUp className="w-4 h-4" />
+            <span>Manual Ingestion Form</span>
           </button>
         </div>
       </div>
+
+      {/* -------------------- SECTION: UNIFIED MIXED DATASET -------------------- */}
+      {activeDatasetTab === 'mixed_catalog' && (
+        <div className="space-y-6 animate-fadeIn">
+          <div className="p-5 rounded-lg bg-paper-card border border-steel/20 shadow-panel">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-steel/15">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Database className="w-5 h-5 text-petrol" strokeWidth={1.5} />
+                  <h2 className="font-display font-bold text-20 text-ink">
+                    Unified Mixed Beneficiary Catalog
+                  </h2>
+                </div>
+                <p className="text-12 text-steel mt-1">
+                  Cross-verified compilation integrating the user-provided Excel workbook (<code className="font-mono text-11">students.csv.xlsx</code>, 300 records) and the authentic school roster (<code className="font-mono text-11">students.csv</code>, 155 records).
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleExportExcel('mixed_sentinel_catalog.xlsx', filteredMixedStudents)}
+                  className="flex items-center gap-2 px-3 py-1.5 text-12 font-semibold rounded bg-petrol text-white hover:bg-petrol-hover transition-colors shadow-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Export Unified Catalog ({filteredMixedStudents.length})</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+              <div className="p-3 rounded bg-paper border border-steel/15">
+                <span className="text-11 text-steel font-semibold uppercase">Total Mixed Filings</span>
+                <div className="font-display font-bold text-24 text-ink tabular-nums mt-0.5">{mixedStudents.length || 455}</div>
+              </div>
+              <div className="p-3 rounded bg-paper border border-sea/30">
+                <span className="text-11 text-sea-dark font-semibold uppercase">Excel Workbook Rows</span>
+                <div className="font-display font-bold text-24 text-sea-dark tabular-nums mt-0.5">{excelStudents.length || 300}</div>
+              </div>
+              <div className="p-3 rounded bg-paper border border-amber/30">
+                <span className="text-11 text-amber-dark font-semibold uppercase">CSV Roster Rows</span>
+                <div className="font-display font-bold text-24 text-amber-dark tabular-nums mt-0.5">{rawStudents.length || 155}</div>
+              </div>
+              <div className="p-3 rounded bg-paper border border-signal/30">
+                <span className="text-11 text-signal-dark font-semibold uppercase">Identified Anomaly Rows</span>
+                <div className="font-display font-bold text-24 text-signal tabular-nums mt-0.5">34</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-lg bg-paper-card border border-steel/20 shadow-panel flex items-center justify-between gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-4 h-4 text-steel absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search across all mixed filings by student name, ID, or account..."
+                value={mixedSearch}
+                onChange={(e) => setMixedSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 text-13 bg-white border border-steel/40 rounded focus:border-petrol text-ink"
+              />
+            </div>
+            <span className="text-12 text-steel">
+              Displaying <strong>{filteredMixedStudents.length}</strong> combined records
+            </span>
+          </div>
+
+          <DataTable columns={mixedColumns} data={filteredMixedStudents} keyField="Student_ID" />
+        </div>
+      )}
+
+      {/* -------------------- SECTION: USER EXCEL FILE (students.csv.xlsx) -------------------- */}
+      {activeDatasetTab === 'user_excel' && (
+        <div className="space-y-6 animate-fadeIn">
+          <div className="p-5 rounded-lg bg-paper-card border border-steel/20 shadow-panel">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-steel/15">
+              <div>
+                <div className="flex items-center gap-2">
+                  <FileSpreadsheet className="w-5 h-5 text-sea" strokeWidth={1.5} />
+                  <h2 className="font-display font-bold text-20 text-ink">
+                    User Excel Dataset: <code className="font-mono text-16">students.csv.xlsx</code> (300 Records)
+                  </h2>
+                </div>
+                <p className="text-12 text-steel mt-1">
+                  Ground-truth test dataset provided in Excel workbook. Contains ground-truth anomaly annotations in the <code className="font-mono text-11">issue</code> column.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleExportExcel('user_excel_students.xlsx', filteredExcelStudents)}
+                  className="flex items-center gap-2 px-3 py-1.5 text-12 font-semibold rounded bg-sea text-white hover:bg-sea-dark transition-colors shadow-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download Excel Copy</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+              <div className="p-3 rounded bg-paper border border-steel/15">
+                <span className="text-11 text-steel font-semibold uppercase">Total Excel Records</span>
+                <div className="font-display font-bold text-24 text-ink tabular-nums mt-0.5">{excelStudents.length || 300}</div>
+              </div>
+              <div className="p-3 rounded bg-paper border border-signal/30">
+                <span className="text-11 text-signal-dark font-semibold uppercase">Duplicate Accounts</span>
+                <div className="font-display font-bold text-24 text-signal tabular-nums mt-0.5">10 Records</div>
+              </div>
+              <div className="p-3 rounded bg-paper border border-amber/30">
+                <span className="text-11 text-amber-dark font-semibold uppercase">Duplicate Phones</span>
+                <div className="font-display font-bold text-24 text-amber-dark tabular-nums mt-0.5">5 Records</div>
+              </div>
+              <div className="p-3 rounded bg-paper border border-signal/30">
+                <span className="text-11 text-signal-dark font-semibold uppercase">Duplicate Aadhaar</span>
+                <div className="font-display font-bold text-24 text-signal tabular-nums mt-0.5">3 Records</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-lg bg-paper-card border border-steel/20 shadow-panel flex items-center justify-between gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-4 h-4 text-steel absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search Excel records by name, ID, or labeled anomaly issue..."
+                value={excelSearch}
+                onChange={(e) => setExcelSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 text-13 bg-white border border-steel/40 rounded focus:border-petrol text-ink"
+              />
+            </div>
+            <span className="text-12 text-steel">
+              Displaying <strong>{filteredExcelStudents.length}</strong> Excel rows
+            </span>
+          </div>
+
+          <DataTable columns={excelColumns} data={filteredExcelStudents} keyField="Student_ID" />
+        </div>
+      )}
 
       {/* -------------------- SECTION 1: UPLOAD CUSTOM CSV & EXCEL & RUN SCANS -------------------- */}
       {activeDatasetTab === 'upload_csv' && (

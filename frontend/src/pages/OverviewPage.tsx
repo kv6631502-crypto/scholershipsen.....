@@ -1,8 +1,26 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { SummaryData, Cluster, Institution } from '../types';
+import { api } from '../lib/api';
 import { InstitutionBarMap3D } from '../components/InstitutionBarMap3D';
 import { RiskBandBadge } from '../components/StatusChip';
-import { ShieldAlert, Users, School, ArrowUpRight, Clock, AlertTriangle, Layers, ChevronRight } from 'lucide-react';
+import {
+  ShieldAlert,
+  Users,
+  School,
+  ArrowUpRight,
+  Clock,
+  AlertTriangle,
+  Layers,
+  ChevronRight,
+  Zap,
+  DollarSign,
+  ShieldCheck,
+  CheckCircle2,
+  FileCheck,
+  Sliders,
+  X,
+  Sparkles,
+} from 'lucide-react';
 
 interface OverviewPageProps {
   summary: SummaryData;
@@ -10,6 +28,7 @@ interface OverviewPageProps {
   institutions: Institution[];
   onOpenCluster: (clusterId: string) => void;
   onNavigateTab: (tab: string) => void;
+  onClusterInjected?: (newCluster: Cluster) => void;
 }
 
 export const OverviewPage: React.FC<OverviewPageProps> = ({
@@ -18,7 +37,44 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
   institutions,
   onOpenCluster,
   onNavigateTab,
+  onClusterInjected,
 }) => {
+  // Red Team Modal State
+  const [isRedTeamOpen, setIsRedTeamOpen] = useState(false);
+  const [redTeamPattern, setRedTeamPattern] = useState<'shared_bank' | 'mobile_farm' | 'ghost_institution' | 'evasive_ring'>('shared_bank');
+  const [redTeamSize, setRedTeamSize] = useState<number>(5);
+  const [isInjecting, setIsInjecting] = useState(false);
+
+  // Pre-Disbursement Check Modal State
+  const [isPreCheckOpen, setIsPreCheckOpen] = useState(false);
+  const [preCheckData, setPreCheckData] = useState({
+    Student_ID: 'NEW-APP-2026',
+    Student_Name: 'Rahul Verma',
+    Aadhaar_No: '593974214828',
+    Account_No: '0684041000001517',
+    attendance: 78,
+  });
+  const [preCheckResult, setPreCheckResult] = useState<any | null>(null);
+
+  const handleInjectRedTeam = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsInjecting(true);
+    try {
+      const injected = await api.injectRedTeam(redTeamPattern, redTeamSize);
+      if (onClusterInjected) onClusterInjected(injected);
+      setIsRedTeamOpen(false);
+      onOpenCluster(injected.id);
+    } finally {
+      setIsInjecting(false);
+    }
+  };
+
+  const handleRunPreCheck = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await api.checkApplicationPreDisbursement(preCheckData);
+    setPreCheckResult(res);
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
       {/* Page Title & Context Header */}
@@ -32,68 +88,97 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-petrol-subtle text-petrol text-12 font-medium border border-petrol/20">
-            <span className="w-2 h-2 rounded-full bg-sea animate-pulse" />
-            Live Sentinel Engine
-          </span>
-          <span className="text-12 text-steel font-medium px-2 py-1 bg-mist-dark rounded border border-steel/30">
-            Faker `en_IN` (Synthetic Data)
-          </span>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Pre-Disbursement Check Button */}
+          <button
+            onClick={() => setIsPreCheckOpen(true)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded bg-paper border border-steel/30 text-ink text-12 font-medium hover:bg-mist transition-colors shadow-sm"
+          >
+            <FileCheck className="w-4 h-4 text-petrol" />
+            <span>Pre-Disbursement Check</span>
+          </button>
+
+          {/* Red Team Live Simulation Button */}
+          <button
+            onClick={() => setIsRedTeamOpen(true)}
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded bg-petrol text-white text-12 font-semibold hover:bg-petrol-hover transition-colors shadow-sm"
+          >
+            <Zap className="w-4 h-4 text-amber" />
+            <span>Red Team Mode (Live)</span>
+          </button>
         </div>
       </div>
 
-      {/* Headline Numbers: One wide row, unequal widths */}
+      {/* Headline Numbers: One wide row, unequal widths (per Section 5 & 7.5) */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-        {/* Applications Analyzed (Wide 5 cols) */}
-        <div className="md:col-span-5 p-5 rounded-lg bg-paper-card border border-steel/20 shadow-panel flex flex-col justify-between">
+        {/* 1. Applications Analyzed (Wide 4 cols) */}
+        <div className="md:col-span-4 p-5 rounded-lg bg-paper-card border border-steel/20 shadow-panel flex flex-col justify-between">
           <div className="flex items-center justify-between text-steel mb-2">
-            <span className="text-12 font-semibold uppercase tracking-wider">
-              Total Applications Analyzed
+            <span className="text-11 font-semibold uppercase tracking-wider">
+              Applications Analyzed
             </span>
             <Users className="w-4 h-4 text-petrol" strokeWidth={1.5} />
           </div>
           <div>
-            <div className="font-display font-bold text-44 text-ink tabular-nums leading-none">
+            <div className="font-display font-bold text-40 text-ink tabular-nums leading-none">
               {summary.applications_analyzed.toLocaleString()}
             </div>
-            <div className="flex items-center gap-3 mt-3 text-12 text-steel">
+            <div className="flex items-center gap-2 mt-3 text-12 text-steel">
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-sea inline-block" />
                 <strong className="text-ink font-semibold">{summary.bands.normal.toLocaleString()}</strong> Normal (89.4%)
               </span>
               <span>•</span>
-              <span>9,200 Unique Students</span>
+              <span>9,200 Students</span>
             </div>
           </div>
         </div>
 
-        {/* Review Required (3 cols) */}
-        <div className="md:col-span-3 p-5 rounded-lg bg-paper-card border border-amber/30 shadow-panel flex flex-col justify-between bg-gradient-to-b from-paper-card to-amber-subtle/20">
+        {/* 2. Money at Risk & Payment Hold (3 cols) */}
+        <div className="md:col-span-3 p-5 rounded-lg bg-paper-card border border-steel/20 shadow-panel flex flex-col justify-between bg-gradient-to-b from-paper-card to-petrol-subtle/20">
           <div className="flex items-center justify-between text-steel mb-2">
-            <span className="text-12 font-semibold uppercase tracking-wider text-amber-dark">
-              Review Required
+            <span className="text-11 font-semibold uppercase tracking-wider text-petrol">
+              Disbursement Hold
+            </span>
+            <DollarSign className="w-4 h-4 text-petrol" strokeWidth={1.5} />
+          </div>
+          <div>
+            <div className="font-display font-bold text-36 text-petrol tabular-nums leading-none">
+              {summary.money_at_risk?.held_formatted || '₹3.12 Cr'}
+            </div>
+            <div className="text-11 text-steel mt-3 flex items-center justify-between">
+              <span>Held before payout</span>
+              <span className="font-semibold text-ink">₹1.70 Cr Recovery</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Review Required (2 cols) */}
+        <div className="md:col-span-2 p-5 rounded-lg bg-paper-card border border-amber/30 shadow-panel flex flex-col justify-between bg-gradient-to-b from-paper-card to-amber-subtle/20">
+          <div className="flex items-center justify-between text-steel mb-2">
+            <span className="text-11 font-semibold uppercase tracking-wider text-amber-dark">
+              Review Band
             </span>
             <AlertTriangle className="w-4 h-4 text-amber" strokeWidth={1.5} />
           </div>
           <div>
-            <div className="font-display font-bold text-44 text-amber-dark tabular-nums leading-none">
+            <div className="font-display font-bold text-36 text-amber-dark tabular-nums leading-none">
               {summary.bands.review.toLocaleString()}
             </div>
-            <div className="text-12 text-steel mt-3">
-              Score 40–69 • Secondary verification queue
+            <div className="text-11 text-steel mt-3">
+              Score 40–69
             </div>
           </div>
         </div>
 
-        {/* High-Risk Applications (4 cols) */}
-        <div className="md:col-span-4 p-5 rounded-lg bg-paper-card border border-signal/30 shadow-panel flex flex-col justify-between bg-gradient-to-b from-paper-card to-signal-subtle/30">
+        {/* 4. High-Risk Applications (3 cols) */}
+        <div className="md:col-span-3 p-5 rounded-lg bg-paper-card border border-signal/30 shadow-panel flex flex-col justify-between bg-gradient-to-b from-paper-card to-signal-subtle/30">
           <div className="flex items-center justify-between text-steel mb-2">
-            <div className="flex items-center gap-2">
-              <span className="text-12 font-semibold uppercase tracking-wider text-signal-dark">
-                High-Risk Applications
+            <div className="flex items-center gap-1.5">
+              <span className="text-11 font-semibold uppercase tracking-wider text-signal-dark">
+                High Risk
               </span>
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-signal text-white">
+              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-signal text-white">
                 PRIORITY
               </span>
             </div>
@@ -101,20 +186,20 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
           </div>
           <div>
             <div className="flex items-baseline gap-2">
-              <span className="font-display font-bold text-44 text-signal tabular-nums leading-none">
+              <span className="font-display font-bold text-36 text-signal tabular-nums leading-none">
                 {summary.bands.high.toLocaleString()}
               </span>
-              <span className="text-14 font-medium text-steel">
-                across {summary.clusters_count.high_risk} clusters
+              <span className="text-12 font-medium text-steel">
+                in {summary.clusters_count.high_risk} clusters
               </span>
             </div>
-            <div className="text-12 text-steel mt-3 flex items-center justify-between">
-              <span>Convergence rings &amp; ghost surges</span>
+            <div className="text-11 text-steel mt-3 flex items-center justify-between">
+              <span>Score &ge; 70</span>
               <button
                 onClick={() => onNavigateTab('clusters')}
-                className="text-petrol font-semibold hover:underline inline-flex items-center text-12"
+                className="text-petrol font-semibold hover:underline inline-flex items-center text-11"
               >
-                Inspect list <ChevronRight className="w-3.5 h-3.5" />
+                Inspect list &rarr;
               </button>
             </div>
           </div>
@@ -144,9 +229,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
 
           <InstitutionBarMap3D
             institutions={institutions}
-            onSelectInstitution={(inst) => {
-              onNavigateTab('institutions');
-            }}
+            onSelectInstitution={() => onNavigateTab('institutions')}
           />
         </div>
 
@@ -165,7 +248,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
               onClick={() => onNavigateTab('clusters')}
               className="text-12 font-semibold text-petrol hover:underline inline-flex items-center gap-1"
             >
-              View all 12 <ChevronRight className="w-3.5 h-3.5" />
+              View all <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -176,9 +259,11 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
                 <div
                   key={cluster.id}
                   onClick={() => onOpenCluster(cluster.id)}
-                  className={`p-3.5 rounded-lg border transition-all cursor-pointer card-tilt ${
+                  className={`p-3.5 rounded-lg border transition-all cursor-pointer ${
                     isHero
                       ? 'bg-paper-card border-signal/40 shadow-panel ring-1 ring-signal/20'
+                      : cluster.is_redteam
+                      ? 'bg-paper-card border-amber/40 shadow-panel ring-1 ring-amber/20'
                       : 'bg-paper border-steel/20 hover:border-petrol/40 hover:bg-paper-card'
                   }`}
                 >
@@ -190,6 +275,11 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
                       {isHero && (
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-signal text-white">
                           DEMO HERO
+                        </span>
+                      )}
+                      {cluster.is_redteam && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber text-ink">
+                          SIMULATED
                         </span>
                       )}
                       <RiskBandBadge band={cluster.band} />
@@ -233,9 +323,12 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
               Recent Officer Case Actions &amp; Audit Trail
             </h3>
           </div>
-          <span className="text-12 text-steel">
-            Human-in-the-loop accountability log
-          </span>
+          <button
+            onClick={() => onNavigateTab('audit')}
+            className="text-12 text-petrol font-semibold hover:underline"
+          >
+            Open Full SHA-256 Audit Chain &rarr;
+          </button>
         </div>
 
         <div className="divide-y divide-steel/15">
@@ -262,6 +355,199 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
           ))}
         </div>
       </div>
+
+      {/* Red Team Live Injection Modal (Tier A Feature 4) */}
+      {isRedTeamOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-paper-card rounded-xl border border-steel/20 shadow-2xl max-w-lg w-full p-6 space-y-5">
+            <div className="flex items-center justify-between border-b border-steel/20 pb-3">
+              <div className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-amber" />
+                <h3 className="font-display font-bold text-18 text-ink">
+                  Red Team Adversarial Simulator
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsRedTeamOpen(false)}
+                className="text-steel hover:text-ink p-1 rounded"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-12 text-steel leading-relaxed">
+              Select an adversarial attack pattern to inject synthetic entities live into the Sentinel graph. Proves system elasticity and explainability.
+            </p>
+
+            <form onSubmit={handleInjectRedTeam} className="space-y-4">
+              <div>
+                <label className="block text-11 font-semibold uppercase text-steel mb-1">
+                  Attack Pattern Architecture
+                </label>
+                <select
+                  value={redTeamPattern}
+                  onChange={(e: any) => setRedTeamPattern(e.target.value)}
+                  className="w-full px-3 py-2 text-12 rounded border border-steel/30 bg-paper text-ink focus:outline-none focus:border-petrol"
+                >
+                  <option value="shared_bank">Shared Bank Account Ring (Mule Hub - High Risk)</option>
+                  <option value="mobile_farm">Mobile Farm Ring (Single SIM Batch - Review Band)</option>
+                  <option value="ghost_institution">Ghost Institution Surge (Non-existent campus)</option>
+                  <option value="evasive_ring">Evasive Ring (Unique banks/mobiles, shared address/guardian)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-11 font-semibold uppercase text-steel mb-1">
+                  Cohort Scale ({redTeamSize} Synthetic Beneficiaries)
+                </label>
+                <input
+                  type="range"
+                  min="3"
+                  max="15"
+                  value={redTeamSize}
+                  onChange={(e) => setRedTeamSize(Number(e.target.value))}
+                  className="w-full accent-petrol"
+                />
+              </div>
+
+              <div className="p-3 rounded bg-mist text-11 text-steel leading-snug">
+                {redTeamPattern === 'evasive_ring' &&
+                  'The Evasive Ring uses distinct banks and phones but shares a residential address and guardian. It demonstrates how graph edge detection catches subtle fraud vectors.'}
+                {redTeamPattern === 'shared_bank' &&
+                  'The Shared Bank Ring connects applications across 3 colleges into single account BA709.'}
+                {redTeamPattern === 'mobile_farm' &&
+                  'The Mobile Farm links applications through a single contact number with sequential filing timing.'}
+                {redTeamPattern === 'ghost_institution' &&
+                  'The Ghost Institution injects 4x surge volume on zero-attendance applicants.'}
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsRedTeamOpen(false)}
+                  className="px-4 py-2 text-12 font-medium rounded text-steel hover:text-ink"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isInjecting}
+                  className="px-4 py-2 text-12 font-semibold rounded bg-petrol text-white hover:bg-petrol-hover transition-colors shadow-sm inline-flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-4 h-4 text-amber" />
+                  <span>{isInjecting ? 'Injecting Attack...' : 'Inject into Live Graph'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Pre-Disbursement Check Modal (Tier A Feature 6) */}
+      {isPreCheckOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-paper-card rounded-xl border border-steel/20 shadow-2xl max-w-lg w-full p-6 space-y-5">
+            <div className="flex items-center justify-between border-b border-steel/20 pb-3">
+              <div className="flex items-center gap-2">
+                <FileCheck className="w-5 h-5 text-petrol" />
+                <h3 className="font-display font-bold text-18 text-ink">
+                  Pre-Disbursement Application Verification
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setIsPreCheckOpen(false);
+                  setPreCheckResult(null);
+                }}
+                className="text-steel hover:text-ink p-1 rounded"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-12 text-steel">
+              Score a newly submitted application before payment disbursement to prevent wrongful payouts.
+            </p>
+
+            <form onSubmit={handleRunPreCheck} className="space-y-3 text-12">
+              <div>
+                <label className="block text-11 font-semibold uppercase text-steel mb-1">
+                  Applicant Name
+                </label>
+                <input
+                  type="text"
+                  value={preCheckData.Student_Name}
+                  onChange={(e) => setPreCheckData({ ...preCheckData, Student_Name: e.target.value })}
+                  className="w-full px-3 py-2 rounded border border-steel/30 bg-paper text-ink"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-11 font-semibold uppercase text-steel mb-1">
+                    Aadhaar Number
+                  </label>
+                  <input
+                    type="text"
+                    value={preCheckData.Aadhaar_No}
+                    onChange={(e) => setPreCheckData({ ...preCheckData, Aadhaar_No: e.target.value })}
+                    className="w-full px-3 py-2 rounded border border-steel/30 bg-paper text-ink font-mono"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-11 font-semibold uppercase text-steel mb-1">
+                    Bank Account No
+                  </label>
+                  <input
+                    type="text"
+                    value={preCheckData.Account_No}
+                    onChange={(e) => setPreCheckData({ ...preCheckData, Account_No: e.target.value })}
+                    className="w-full px-3 py-2 rounded border border-steel/30 bg-paper text-ink font-mono"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-11 font-semibold uppercase text-steel mb-1">
+                  Verified Attendance Percentage ({preCheckData.attendance}%)
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={preCheckData.attendance}
+                  onChange={(e) => setPreCheckData({ ...preCheckData, attendance: Number(e.target.value) })}
+                  className="w-full accent-petrol"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-2.5 text-12 font-semibold rounded bg-petrol text-white hover:bg-petrol-hover transition-colors shadow-sm"
+              >
+                Evaluate Pre-Disbursement Risk
+              </button>
+            </form>
+
+            {preCheckResult && (
+              <div className="p-4 rounded-lg bg-mist border border-steel/20 space-y-2 animate-fadeIn">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-ink">Risk Evaluation:</span>
+                  <span className="font-bold font-mono text-16 text-signal">
+                    {preCheckResult.score}/100
+                  </span>
+                </div>
+                <div className="font-bold text-13 text-ink">
+                  Recommendation: <span className="text-petrol">{preCheckResult.recommendation}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

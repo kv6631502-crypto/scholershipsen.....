@@ -121,17 +121,6 @@
     "surge_ratio": 1.02
   },
   {
-    "id": "INST-012",
-    "name": "Government College of Excellence 12",
-    "state": "Gujarat",
-    "district": "South",
-    "type": "Polytechnic",
-    "registered": 465,
-    "active": 430,
-    "applications": 438,
-    "surge_ratio": 1.02
-  },
-  {
     "id": "INST-013",
     "name": "Government College of Excellence 13",
     "state": "Kerala",
@@ -185,17 +174,6 @@
     "active": 639,
     "applications": 662,
     "surge_ratio": 1.04
-  },
-  {
-    "id": "INST-018",
-    "name": "Government College of Excellence 18",
-    "state": "Himachal Pradesh",
-    "district": "Uplands",
-    "type": "Vocational",
-    "registered": 216,
-    "active": 186,
-    "applications": 164,
-    "surge_ratio": 0.88
   },
   {
     "id": "INST-019",
@@ -253,17 +231,6 @@
     "surge_ratio": 0.92
   },
   {
-    "id": "INST-024",
-    "name": "Government College of Excellence 24",
-    "state": "West Bengal",
-    "district": "West",
-    "type": "Medical Sciences",
-    "registered": 940,
-    "active": 823,
-    "applications": 862,
-    "surge_ratio": 1.05
-  },
-  {
     "id": "INST-025",
     "name": "Government College of Excellence 25",
     "state": "Odisha",
@@ -308,17 +275,6 @@
     "surge_ratio": 0.93
   },
   {
-    "id": "INST-029",
-    "name": "Government College of Excellence 29",
-    "state": "Uttarakhand",
-    "district": "Coastal",
-    "type": "Medical Sciences",
-    "registered": 616,
-    "active": 559,
-    "applications": 561,
-    "surge_ratio": 1.0
-  },
-  {
     "id": "INST-030",
     "name": "Government College of Excellence 30",
     "state": "Maharashtra",
@@ -330,17 +286,6 @@
     "surge_ratio": 1.0
   },
   {
-    "id": "INST-031",
-    "name": "Government College of Excellence 31",
-    "state": "Tamil Nadu",
-    "district": "North",
-    "type": "Degree College",
-    "registered": 841,
-    "active": 726,
-    "applications": 644,
-    "surge_ratio": 0.89
-  },
-  {
     "id": "INST-032",
     "name": "Government College of Excellence 32",
     "state": "Gujarat",
@@ -350,17 +295,6 @@
     "active": 568,
     "applications": 603,
     "surge_ratio": 1.06
-  },
-  {
-    "id": "INST-033",
-    "name": "Government College of Excellence 33",
-    "state": "Kerala",
-    "district": "East",
-    "type": "Vocational",
-    "registered": 812,
-    "active": 750,
-    "applications": 693,
-    "surge_ratio": 0.92
   },
   {
     "id": "INST-034",
@@ -451,17 +385,6 @@
     "surge_ratio": 0.88
   },
   {
-    "id": "INST-042",
-    "name": "Government College of Excellence 42",
-    "state": "Gujarat",
-    "district": "South",
-    "type": "Polytechnic",
-    "registered": 728,
-    "active": 685,
-    "applications": 589,
-    "surge_ratio": 0.86
-  },
-  {
     "id": "INST-043",
     "name": "Government College of Excellence 43",
     "state": "Kerala",
@@ -504,17 +427,6 @@
     "active": 746,
     "applications": 636,
     "surge_ratio": 0.85
-  },
-  {
-    "id": "INST-047",
-    "name": "Government College of Excellence 47",
-    "state": "Jharkhand",
-    "district": "Valley",
-    "type": "Polytechnic",
-    "registered": 342,
-    "active": 297,
-    "applications": 289,
-    "surge_ratio": 0.97
   },
   {
     "id": "INST-048",
@@ -592,17 +504,6 @@
     "active": 732,
     "applications": 777,
     "surge_ratio": 1.06
-  },
-  {
-    "id": "INST-055",
-    "name": "Government College of Excellence 55",
-    "state": "Odisha",
-    "district": "Suburban",
-    "type": "Engineering",
-    "registered": 205,
-    "active": 180,
-    "applications": 173,
-    "surge_ratio": 0.96
   },
   {
     "id": "INST-056",
