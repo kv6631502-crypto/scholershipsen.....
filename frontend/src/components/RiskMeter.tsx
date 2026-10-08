@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
+import { animate } from 'animejs';
 import { RiskBand } from '../types';
 
 interface RiskMeterProps {
@@ -14,6 +15,9 @@ export const RiskMeter: React.FC<RiskMeterProps> = ({
   size = 'md',
   showSubtitle = true,
 }) => {
+  const pathRef = useRef<SVGPathElement>(null);
+  const scoreTextRef = useRef<HTMLSpanElement>(null);
+
   const getBandColor = () => {
     switch (band) {
       case 'high':
@@ -40,7 +44,37 @@ export const RiskMeter: React.FC<RiskMeterProps> = ({
   const radius = size === 'lg' ? 44 : size === 'md' ? 36 : 24;
   const stroke = size === 'lg' ? 7 : size === 'md' ? 6 : 4;
   const circumference = Math.PI * radius; // semi-circle
-  const strokeDashoffset = circumference - (score / 100) * circumference;
+
+  useEffect(() => {
+    const pathEl = pathRef.current;
+    const textEl = scoreTextRef.current;
+    const targetOffset = circumference - (score / 100) * circumference;
+
+    const animData = { offset: circumference, currentScore: 0 };
+
+    const anim = animate(animData, {
+      offset: targetOffset,
+      currentScore: score,
+      duration: 950,
+      ease: 'outCubic',
+      onUpdate: () => {
+        if (pathEl) {
+          pathEl.style.strokeDashoffset = `${animData.offset}`;
+        }
+        if (textEl) {
+          textEl.textContent = `${Math.round(animData.currentScore)}`;
+        }
+      },
+    });
+
+    return () => {
+      try {
+        if (typeof (anim as any)?.pause === 'function') {
+          (anim as any).pause();
+        }
+      } catch (_) {}
+    };
+  }, [score, circumference]);
 
   return (
     <div className="flex flex-col items-start">
@@ -60,20 +94,21 @@ export const RiskMeter: React.FC<RiskMeterProps> = ({
               strokeWidth={stroke}
               strokeLinecap="round"
             />
-            {/* Progress arc */}
+            {/* Progress arc animated by Anime.js */}
             <path
+              ref={pathRef}
               d={`M ${stroke} ${radius + stroke} A ${radius} ${radius} 0 0 1 ${radius * 2 + stroke} ${radius + stroke}`}
               fill="none"
               stroke={color}
               strokeWidth={stroke}
               strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
+              strokeDashoffset={circumference}
               strokeLinecap="round"
-              className="transition-all duration-700 ease-out"
             />
           </svg>
           <div className="absolute top-2 flex flex-col items-center">
             <span
+              ref={scoreTextRef}
               className={`font-display font-bold tabular-nums ${
                 size === 'lg' ? 'text-28' : size === 'md' ? 'text-20' : 'text-16'
               } text-ink`}

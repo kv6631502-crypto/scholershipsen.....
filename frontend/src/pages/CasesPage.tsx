@@ -2,7 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { Cluster, ActionType, ActionPayload } from '../types';
 import { StatusChip, RiskBandBadge } from '../components/StatusChip';
 import { ActionModal } from '../components/ActionModal';
-import { UserCheck, FileText, ShieldAlert, CheckCircle2, Archive, Search, Filter, Layers } from 'lucide-react';
+import { AnimatedScore } from '../components/AnimatedScore';
+import { UserCheck, FileText, ShieldAlert, CheckCircle2, Archive, Search, Filter, Layers, Activity } from 'lucide-react';
 
 interface CasesPageProps {
   clusters: Cluster[];
@@ -39,6 +40,14 @@ export const CasesPage: React.FC<CasesPageProps> = ({
     });
   }, [clusters, bandFilter, searchQuery]);
 
+  const totalCaseRiskScoreSum = useMemo(() => {
+    return filtered.reduce((acc, c) => acc + (c.score || 0), 0);
+  }, [filtered]);
+
+  const avgCaseRiskScore = useMemo(() => {
+    return filtered.length > 0 ? (totalCaseRiskScoreSum / filtered.length).toFixed(1) : '0';
+  }, [filtered, totalCaseRiskScoreSum]);
+
   const handleOpenAction = (clusterId: string, action: ActionType, e: React.MouseEvent) => {
     e.stopPropagation();
     setModalClusterId(clusterId);
@@ -59,9 +68,24 @@ export const CasesPage: React.FC<CasesPageProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="text-12 text-steel">
-            Total active cases: <strong className="text-ink font-semibold">{clusters.length}</strong>
-          </span>
+          <div className="px-3.5 py-1.5 rounded bg-paper-card border border-steel/20 shadow-sm text-right">
+            <span className="text-[10px] text-steel uppercase font-semibold block tracking-wider flex items-center gap-1 justify-end">
+              <Activity className="w-3 h-3 text-petrol inline" />
+              Actual Sum of Case Risk Scores
+            </span>
+            <div className="font-display font-bold text-18 text-petrol tabular-nums leading-tight flex items-baseline gap-1 justify-end">
+              <AnimatedScore value={totalCaseRiskScoreSum} />
+              <span className="text-11 text-steel font-normal">pts</span>
+            </div>
+            <span className="text-[10px] text-steel">Avg: {avgCaseRiskScore} / 100</span>
+          </div>
+
+          <div className="text-right">
+            <span className="text-12 text-steel block">
+              Active Cases: <strong className="text-ink font-semibold"><AnimatedScore value={filtered.length} /></strong>
+            </span>
+            <span className="text-[11px] text-steel">Across all queues</span>
+          </div>
         </div>
       </div>
 
@@ -103,6 +127,7 @@ export const CasesPage: React.FC<CasesPageProps> = ({
             (c) => c.status.toLowerCase() === col.id.toLowerCase() ||
             (col.id === 'closed' && c.status.toLowerCase() === 'verified')
           );
+          const colRiskSum = colClusters.reduce((sum, c) => sum + (c.score || 0), 0);
 
           return (
             <div
@@ -123,6 +148,13 @@ export const CasesPage: React.FC<CasesPageProps> = ({
                 </div>
                 <div className="text-[11px] text-steel mt-0.5">
                   {col.subtitle}
+                </div>
+                <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-steel/10 text-[11px]">
+                  <span className="text-steel font-medium">Actual Risk Sum:</span>
+                  <span className="font-display font-bold text-ink tabular-nums flex items-baseline gap-0.5">
+                    <AnimatedScore value={colRiskSum} />
+                    <span className="text-[10px] text-steel font-normal">pts</span>
+                  </span>
                 </div>
               </div>
 

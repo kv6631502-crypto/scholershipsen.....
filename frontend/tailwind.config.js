@@ -5,63 +5,57 @@ export default {
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    // HARD RULE: Strict custom palette replacement.
-    // Absolutely NO violet, purple, indigo, fuchsia or magenta anywhere.
-    colors: {
-      transparent: 'transparent',
-      current: 'currentColor',
-      white: '#FFFFFF',
-      black: '#000000',
-      mist: {
-        DEFAULT: '#E6EDEF',
-        dark: '#D9E3E6',
-        light: '#EFF4F5',
-      },
-      paper: {
-        DEFAULT: '#F6F9F9',
-        card: '#FFFFFF',
-        hover: '#EFF4F5',
-      },
-      ink: {
-        DEFAULT: '#12262E',
-        light: '#253E47',
-        dark: '#0A171D',
-      },
-      steel: {
-        DEFAULT: '#6B8794',
-        light: '#98ADB8',
-        dark: '#48606B',
-        faint: '#D2DDE1',
-      },
-      petrol: {
-        DEFAULT: '#0F4C5C',
-        hover: '#0A3844',
-        light: '#1B6579',
-        subtle: '#E5F1F4',
-      },
-      harbor: {
-        DEFAULT: '#0A2A33',
-        surface: '#0F3642',
-        border: '#1A4856',
-        muted: '#133945',
-      },
-      signal: {
-        DEFAULT: '#E0452B',
-        dark: '#B8321B',
-        subtle: '#FDEDEA',
-      },
-      amber: {
-        DEFAULT: '#E8A02A',
-        dark: '#BA7A16',
-        subtle: '#FEF6E8',
-      },
-      sea: {
-        DEFAULT: '#2F9E8F',
-        dark: '#21786D',
-        subtle: '#EAF7F5',
-      },
-    },
     extend: {
+      colors: {
+        mist: {
+          DEFAULT: '#E6EDEF',
+          dark: '#D9E3E6',
+          light: '#EFF4F5',
+        },
+        paper: {
+          DEFAULT: '#F6F9F9',
+          card: '#FFFFFF',
+          hover: '#EFF4F5',
+        },
+        ink: {
+          DEFAULT: '#12262E',
+          light: '#253E47',
+          dark: '#0A171D',
+        },
+        steel: {
+          DEFAULT: '#6B8794',
+          light: '#98ADB8',
+          dark: '#48606B',
+          faint: '#D2DDE1',
+        },
+        petrol: {
+          DEFAULT: '#0F4C5C',
+          hover: '#0A3844',
+          light: '#1B6579',
+          subtle: '#E5F1F4',
+        },
+        harbor: {
+          DEFAULT: '#0A2A33',
+          surface: '#0F3642',
+          border: '#1A4856',
+          muted: '#133945',
+        },
+        signal: {
+          DEFAULT: '#E0452B',
+          dark: '#B8321B',
+          subtle: '#FDEDEA',
+        },
+        amber: {
+          DEFAULT: '#E8A02A',
+          dark: '#BA7A16',
+          subtle: '#FEF6E8',
+        },
+        sea: {
+          DEFAULT: '#2F9E8F',
+          dark: '#21786D',
+          subtle: '#EAF7F5',
+        },
+      },
       fontFamily: {
         display: ['"Bricolage Grotesque"', 'sans-serif'],
         sans: ['"Public Sans"', 'sans-serif'],

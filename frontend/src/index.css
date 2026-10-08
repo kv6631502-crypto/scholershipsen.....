@@ -3,18 +3,6 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --color-mist: #E6EDEF;
-    --color-paper: #F6F9F9;
-    --color-ink: #12262E;
-    --color-steel: #6B8794;
-    --color-petrol: #0F4C5C;
-    --color-harbor: #0A2A33;
-    --color-signal: #E0452B;
-    --color-amber: #E8A02A;
-    --color-sea: #2F9E8F;
-  }
-
   * {
     box-sizing: border-box;
     border-color: #D2DDE1;

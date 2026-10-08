@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Institution } from '../types';
 import { InstitutionBarMap3D } from '../components/InstitutionBarMap3D';
 import { DataTable, Column } from '../components/DataTable';
+import { AnimatedScore } from '../components/AnimatedScore';
 import { Search, Filter, AlertTriangle, Building, ArrowUpRight, ShieldAlert } from 'lucide-react';
 
 interface InstitutionsPageProps {
@@ -33,6 +34,23 @@ export const InstitutionsPage: React.FC<InstitutionsPageProps> = ({
       return true;
     });
   }, [institutions, surgeFilter, searchQuery]);
+
+  const totalInstRiskPoints = useMemo(() => {
+    return filteredInstitutions.reduce(
+      (acc, i) => acc + (i.surge_ratio >= 3.0 ? 15 : i.surge_ratio >= 1.5 ? 8 : 0),
+      0
+    );
+  }, [filteredInstitutions]);
+
+  const criticalSurgeRiskPoints = useMemo(() => {
+    return filteredInstitutions
+      .filter((i) => i.surge_ratio >= 3.0)
+      .reduce((acc) => acc + 15, 0);
+  }, [filteredInstitutions]);
+
+  const avgInstRiskPoints = filteredInstitutions.length
+    ? (totalInstRiskPoints / filteredInstitutions.length).toFixed(1)
+    : '0';
 
   const columns: Column<Institution>[] = [
     {
@@ -89,7 +107,7 @@ export const InstitutionsPage: React.FC<InstitutionsPageProps> = ({
       header: 'Surge Ratio',
       sortable: true,
       align: 'right',
-      width: '130px',
+      width: '120px',
       render: (r) => {
         const isCritical = r.surge_ratio >= 3.0;
         return (
@@ -100,6 +118,30 @@ export const InstitutionsPage: React.FC<InstitutionsPageProps> = ({
           >
             {r.surge_ratio.toFixed(2)}x
           </span>
+        );
+      },
+    },
+    {
+      key: 'risk_points',
+      header: 'Actual Risk Score',
+      sortable: true,
+      align: 'right',
+      width: '140px',
+      render: (r) => {
+        const points = r.surge_ratio >= 3.0 ? 15 : r.surge_ratio >= 1.5 ? 8 : 0;
+        return (
+          <div className="text-right">
+            <span
+              className={`font-display font-bold text-14 tabular-nums ${
+                points >= 15 ? 'text-signal' : points > 0 ? 'text-amber-dark' : 'text-sea'
+              }`}
+            >
+              {points > 0 ? `+${points} pts` : '0 pts'}
+            </span>
+            <div className="text-[10px] text-steel">
+              {points === 15 ? 'Ghost Surge (+15)' : points === 8 ? 'Elevated (+8)' : 'Baseline'}
+            </div>
+          </div>
         );
       },
     },
@@ -122,6 +164,43 @@ export const InstitutionsPage: React.FC<InstitutionsPageProps> = ({
           <span className="text-12 font-medium px-3 py-1 bg-signal-subtle text-signal-dark border border-signal/30 rounded">
             {institutions.filter(i => i.surge_ratio >= 3.0).length} Ghost Surge Alerts (&gt;3x)
           </span>
+          <span className="text-12 font-bold px-3 py-1 bg-petrol/10 text-petrol border border-petrol/30 rounded tabular-nums flex items-center gap-1">
+            <span>Total Risk:</span>
+            <AnimatedScore value={totalInstRiskPoints} suffix=" pts" />
+          </span>
+        </div>
+      </div>
+
+      {/* Executive Risk Score Summary Banner */}
+      <div className="bg-paper-card border border-steel/20 rounded-lg p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-signal/10 border border-signal/30 flex items-center justify-center shrink-0">
+            <ShieldAlert className="w-5 h-5 text-signal" />
+          </div>
+          <div>
+            <div className="text-11 uppercase font-bold tracking-wider text-steel">
+              Campus Anomaly Score Attribution
+            </div>
+            <div className="font-display font-bold text-20 text-ink flex items-center gap-1.5">
+              <span>Actual Sum of Risk Score:</span>
+              <AnimatedScore value={totalInstRiskPoints} suffix=" pts" className="text-signal font-bold" />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 text-12 divide-x divide-steel/20 flex-wrap">
+          <div>
+            <span className="text-steel">Critical Surge Risk Mass (&gt;3x): </span>
+            <AnimatedScore value={criticalSurgeRiskPoints} suffix=" pts" className="font-bold text-signal ml-1" />
+          </div>
+          <div className="pl-4">
+            <span className="text-steel">Average Risk per Campus: </span>
+            <span className="font-bold text-ink tabular-nums">{avgInstRiskPoints} pts</span>
+          </div>
+          <div className="pl-4">
+            <span className="text-steel">Institutions Evaluated: </span>
+            <AnimatedScore value={filteredInstitutions.length} className="font-bold text-petrol ml-1" />
+          </div>
         </div>
       </div>
 

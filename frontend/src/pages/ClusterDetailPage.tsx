@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Cluster, ActionType, ActionPayload, CounterfactualResult, CaseBrief } from '../types';
 import { api } from '../lib/api';
 import { RiskMeter } from '../components/RiskMeter';
+import { AnimatedScore } from '../components/AnimatedScore';
 import { StatusChip, RiskBandBadge } from '../components/StatusChip';
 import { GraphStage3D } from '../components/GraphStage3D';
 import { ActionModal } from '../components/ActionModal';
@@ -88,6 +89,10 @@ export const ClusterDetailPage: React.FC<ClusterDetailPageProps> = ({
 
   const currentScore = counterfactual ? counterfactual.new_score : cluster.score;
   const currentBand = counterfactual ? counterfactual.new_band : cluster.band;
+
+  const activeReasons = cluster.reasons.filter((r) => !disabledSignals.includes(r.signal));
+  const actualPointsSum = activeReasons.reduce((acc, r) => acc + (r.points || 0), 0);
+  const pointsFormula = activeReasons.map((r) => `+${r.points}`).join(' ');
 
   // Filter graph for time-lapse
   const timeLapseFilteredGraph = React.useMemo(() => {
@@ -236,9 +241,21 @@ export const ClusterDetailPage: React.FC<ClusterDetailPageProps> = ({
           </p>
         </div>
 
-        {/* Risk Meter Gauge */}
-        <div className="lg:border-l lg:border-steel/20 lg:pl-6 shrink-0">
+        {/* Risk Meter Gauge & Actual Sum of Risk Score */}
+        <div className="lg:border-l lg:border-steel/20 lg:pl-6 shrink-0 flex flex-col items-center">
           <RiskMeter score={currentScore} band={currentBand} size="lg" />
+          <div className="mt-2.5 px-3 py-1.5 rounded bg-mist/60 border border-steel/20 text-center w-full">
+            <span className="text-[10px] text-steel uppercase font-semibold block tracking-wider">
+              Actual Sum of Risk Score
+            </span>
+            <div className="font-display font-bold text-16 text-ink tabular-nums flex items-baseline justify-center gap-1">
+              <AnimatedScore value={actualPointsSum} />
+              <span className="text-11 text-steel font-normal">pts</span>
+              {actualPointsSum > 100 && (
+                <span className="text-[10px] text-signal font-semibold">(Capped to 100)</span>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -425,19 +442,24 @@ export const ClusterDetailPage: React.FC<ClusterDetailPageProps> = ({
               </div>
             )}
 
-            {/* Tally Score Bar */}
-            <div className="pt-3 border-t border-steel/20 flex items-center justify-between">
-              <div>
-                <span className="font-display font-bold text-14 text-ink block">
-                  Calculated Risk Score:
-                </span>
-                <span className="text-[11px] text-steel">
-                  Floor 0 • Cap 100
-                </span>
-              </div>
-              <div className="flex items-baseline gap-1 font-display font-bold text-22 text-signal tabular-nums">
-                <span>{currentScore}</span>
-                <span className="text-12 text-steel font-normal">/ 100</span>
+            {/* Tally Score Bar with Actual Points Sum */}
+            <div className="pt-3 border-t border-steel/20 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-display font-bold text-14 text-ink block">
+                    Actual Sum of Risk Score:
+                  </span>
+                  <span className="text-[11px] text-steel tabular-nums font-medium">
+                    {pointsFormula} = <strong className="text-ink">{actualPointsSum} pts</strong>
+                  </span>
+                </div>
+                <div className="text-right">
+                  <div className="flex items-baseline gap-1 font-display font-bold text-22 text-signal tabular-nums justify-end">
+                    <span>{currentScore}</span>
+                    <span className="text-12 text-steel font-normal">/ 100</span>
+                  </div>
+                  <span className="text-[10px] text-steel">Capped Score</span>
+                </div>
               </div>
             </div>
 

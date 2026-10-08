@@ -3,6 +3,7 @@ import { SummaryData, Cluster, Institution } from '../types';
 import { api } from '../lib/api';
 import { InstitutionBarMap3D } from '../components/InstitutionBarMap3D';
 import { RiskBandBadge } from '../components/StatusChip';
+import { AnimatedScore } from '../components/AnimatedScore';
 import {
   ShieldAlert,
   Users,
@@ -20,6 +21,7 @@ import {
   Sliders,
   X,
   Sparkles,
+  Activity,
 } from 'lucide-react';
 
 interface OverviewPageProps {
@@ -75,6 +77,10 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
     setPreCheckResult(res);
   };
 
+  // Actual Sum of Risk Scores across detected anomaly clusters
+  const totalClusterRiskScoreSum = topClusters.reduce((acc, c) => acc + (c.score || 0), 0);
+  const avgClusterRiskScore = topClusters.length > 0 ? (totalClusterRiskScoreSum / topClusters.length).toFixed(1) : '0';
+
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
       {/* Page Title & Context Header */}
@@ -109,10 +115,10 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
         </div>
       </div>
 
-      {/* Headline Numbers: One wide row, unequal widths (per Section 5 & 7.5) */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-        {/* 1. Applications Analyzed (Wide 4 cols) */}
-        <div className="md:col-span-4 p-5 rounded-lg bg-paper-card border border-steel/20 shadow-panel flex flex-col justify-between">
+      {/* Headline Numbers: 5 cards including Actual Sum of Risk Score */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* 1. Applications Analyzed */}
+        <div className="p-5 rounded-lg bg-paper-card border border-steel/20 shadow-panel flex flex-col justify-between">
           <div className="flex items-center justify-between text-steel mb-2">
             <span className="text-11 font-semibold uppercase tracking-wider">
               Applications Analyzed
@@ -120,41 +126,59 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
             <Users className="w-4 h-4 text-petrol" strokeWidth={1.5} />
           </div>
           <div>
-            <div className="font-display font-bold text-40 text-ink tabular-nums leading-none">
-              {summary.applications_analyzed.toLocaleString()}
+            <div className="font-display font-bold text-36 text-ink tabular-nums leading-none">
+              <AnimatedScore value={summary.applications_analyzed} />
             </div>
-            <div className="flex items-center gap-2 mt-3 text-12 text-steel">
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-sea inline-block" />
-                <strong className="text-ink font-semibold">{summary.bands.normal.toLocaleString()}</strong> Normal (89.4%)
-              </span>
-              <span>•</span>
-              <span>9,200 Students</span>
+            <div className="flex items-center gap-1.5 mt-3 text-11 text-steel">
+              <span className="w-2 h-2 rounded-full bg-sea inline-block shrink-0" />
+              <span><strong className="text-ink font-semibold">{summary.bands.normal.toLocaleString()}</strong> Normal</span>
             </div>
           </div>
         </div>
 
-        {/* 2. Money at Risk & Payment Hold (3 cols) */}
-        <div className="md:col-span-3 p-5 rounded-lg bg-paper-card border border-steel/20 shadow-panel flex flex-col justify-between bg-gradient-to-b from-paper-card to-petrol-subtle/20">
+        {/* 2. Actual Sum of Risk Score */}
+        <div className="p-5 rounded-lg bg-paper-card border border-petrol/30 shadow-panel flex flex-col justify-between bg-gradient-to-b from-paper-card to-petrol-subtle/30">
           <div className="flex items-center justify-between text-steel mb-2">
-            <span className="text-11 font-semibold uppercase tracking-wider text-petrol">
+            <span className="text-11 font-semibold uppercase tracking-wider text-petrol font-bold">
+              Actual Sum of Risk Score
+            </span>
+            <Activity className="w-4 h-4 text-petrol" strokeWidth={1.8} />
+          </div>
+          <div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="font-display font-bold text-36 text-petrol tabular-nums leading-none">
+                <AnimatedScore value={totalClusterRiskScoreSum} />
+              </span>
+              <span className="text-12 font-medium text-steel">pts</span>
+            </div>
+            <div className="text-11 text-steel mt-3 flex items-center justify-between">
+              <span>Avg: <strong className="text-ink">{avgClusterRiskScore}</strong> / 100</span>
+              <span className="font-semibold text-petrol">{topClusters.length} clusters</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Disbursement Hold */}
+        <div className="p-5 rounded-lg bg-paper-card border border-steel/20 shadow-panel flex flex-col justify-between">
+          <div className="flex items-center justify-between text-steel mb-2">
+            <span className="text-11 font-semibold uppercase tracking-wider text-steel-dark">
               Disbursement Hold
             </span>
             <DollarSign className="w-4 h-4 text-petrol" strokeWidth={1.5} />
           </div>
           <div>
-            <div className="font-display font-bold text-36 text-petrol tabular-nums leading-none">
+            <div className="font-display font-bold text-36 text-ink tabular-nums leading-none">
               {summary.money_at_risk?.held_formatted || '₹3.12 Cr'}
             </div>
             <div className="text-11 text-steel mt-3 flex items-center justify-between">
-              <span>Held before payout</span>
+              <span>Held pre-payout</span>
               <span className="font-semibold text-ink">₹1.70 Cr Recovery</span>
             </div>
           </div>
         </div>
 
-        {/* 3. Review Required (2 cols) */}
-        <div className="md:col-span-2 p-5 rounded-lg bg-paper-card border border-amber/30 shadow-panel flex flex-col justify-between bg-gradient-to-b from-paper-card to-amber-subtle/20">
+        {/* 4. Review Required */}
+        <div className="p-5 rounded-lg bg-paper-card border border-amber/30 shadow-panel flex flex-col justify-between bg-gradient-to-b from-paper-card to-amber-subtle/20">
           <div className="flex items-center justify-between text-steel mb-2">
             <span className="text-11 font-semibold uppercase tracking-wider text-amber-dark">
               Review Band
@@ -163,16 +187,16 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
           </div>
           <div>
             <div className="font-display font-bold text-36 text-amber-dark tabular-nums leading-none">
-              {summary.bands.review.toLocaleString()}
+              <AnimatedScore value={summary.bands.review} />
             </div>
             <div className="text-11 text-steel mt-3">
-              Score 40–69
+              Score 40–69 (Queue)
             </div>
           </div>
         </div>
 
-        {/* 4. High-Risk Applications (3 cols) */}
-        <div className="md:col-span-3 p-5 rounded-lg bg-paper-card border border-signal/30 shadow-panel flex flex-col justify-between bg-gradient-to-b from-paper-card to-signal-subtle/30">
+        {/* 5. High-Risk Applications */}
+        <div className="p-5 rounded-lg bg-paper-card border border-signal/30 shadow-panel flex flex-col justify-between bg-gradient-to-b from-paper-card to-signal-subtle/30">
           <div className="flex items-center justify-between text-steel mb-2">
             <div className="flex items-center gap-1.5">
               <span className="text-11 font-semibold uppercase tracking-wider text-signal-dark">
@@ -187,7 +211,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
           <div>
             <div className="flex items-baseline gap-2">
               <span className="font-display font-bold text-36 text-signal tabular-nums leading-none">
-                {summary.bands.high.toLocaleString()}
+                <AnimatedScore value={summary.bands.high} />
               </span>
               <span className="text-12 font-medium text-steel">
                 in {summary.clusters_count.high_risk} clusters
@@ -314,20 +338,20 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
         </div>
       </div>
 
-      {/* Recent Officer Activity Audit Trail */}
+      {/* Recent Officer Activity */}
       <div className="p-5 rounded-lg bg-paper-card border border-steel/20 shadow-panel">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-petrol" strokeWidth={1.5} />
             <h3 className="font-display font-semibold text-16 text-ink">
-              Recent Officer Case Actions &amp; Audit Trail
+              Recent Officer Case Actions &amp; Timeline
             </h3>
           </div>
           <button
-            onClick={() => onNavigateTab('audit')}
+            onClick={() => onNavigateTab('cases')}
             className="text-12 text-petrol font-semibold hover:underline"
           >
-            Open Full SHA-256 Audit Chain &rarr;
+            Open Case Queue &rarr;
           </button>
         </div>
 

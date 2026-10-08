@@ -3,7 +3,8 @@ import { Cluster, RiskBand, CaseStatus } from '../types';
 import { RiskBandBadge, StatusChip } from '../components/StatusChip';
 import { EmptyState } from '../components/EmptyState';
 import { DataTable, Column } from '../components/DataTable';
-import { Search, Filter, LayoutGrid, List, Sparkles, Layers, FileSpreadsheet } from 'lucide-react';
+import { AnimatedScore } from '../components/AnimatedScore';
+import { Search, Filter, LayoutGrid, List, Sparkles, Layers, FileSpreadsheet, Activity } from 'lucide-react';
 
 interface ClustersPageProps {
   clusters: Cluster[];
@@ -46,6 +47,26 @@ export const ClustersPage: React.FC<ClustersPageProps> = ({
       return true;
     });
   }, [currentDataset, bandFilter, statusFilter, searchQuery]);
+
+  const totalScoreSum = useMemo(() => {
+    return filteredClusters.reduce((sum, c) => sum + (c.score || 0), 0);
+  }, [filteredClusters]);
+
+  const avgScore = useMemo(() => {
+    return filteredClusters.length > 0 ? (totalScoreSum / filteredClusters.length).toFixed(1) : '0';
+  }, [filteredClusters, totalScoreSum]);
+
+  const highRiskScoreSum = useMemo(() => {
+    return filteredClusters
+      .filter((c) => c.band.toLowerCase() === 'high')
+      .reduce((sum, c) => sum + (c.score || 0), 0);
+  }, [filteredClusters]);
+
+  const reviewScoreSum = useMemo(() => {
+    return filteredClusters
+      .filter((c) => c.band.toLowerCase() === 'review')
+      .reduce((sum, c) => sum + (c.score || 0), 0);
+  }, [filteredClusters]);
 
   const columns: Column<Cluster>[] = [
     {
@@ -156,6 +177,47 @@ export const ClustersPage: React.FC<ClustersPageProps> = ({
             <FileSpreadsheet className="w-3.5 h-3.5" />
             <span>Uploaded students.csv (Live Graph)</span>
           </button>
+        </div>
+      </div>
+
+      {/* Risk Score Summary Banner: Actual Sum of Risk Scores */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-lg bg-paper-card border border-steel/20 shadow-panel">
+        <div>
+          <span className="text-11 uppercase font-semibold text-steel block">Active Clusters</span>
+          <div className="font-display font-bold text-24 text-ink tabular-nums mt-0.5">
+            <AnimatedScore value={filteredClusters.length} />
+          </div>
+          <span className="text-[11px] text-steel">In current filter</span>
+        </div>
+
+        <div className="border-l border-steel/20 pl-3">
+          <span className="text-11 uppercase font-semibold text-petrol font-bold block flex items-center gap-1">
+            <Activity className="w-3.5 h-3.5 text-petrol inline shrink-0" />
+            Actual Sum of Risk Scores
+          </span>
+          <div className="font-display font-bold text-24 text-petrol tabular-nums mt-0.5 flex items-baseline gap-1">
+            <AnimatedScore value={totalScoreSum} />
+            <span className="text-12 font-normal text-steel">pts</span>
+          </div>
+          <span className="text-[11px] text-steel">Average: <strong className="text-ink">{avgScore}</strong> / 100</span>
+        </div>
+
+        <div className="border-l border-steel/20 pl-3">
+          <span className="text-11 uppercase font-semibold text-signal-dark block">High-Risk Score Sum</span>
+          <div className="font-display font-bold text-24 text-signal tabular-nums mt-0.5 flex items-baseline gap-1">
+            <AnimatedScore value={highRiskScoreSum} />
+            <span className="text-12 font-normal text-steel">pts</span>
+          </div>
+          <span className="text-[11px] text-steel">Score &ge; 70 priority mass</span>
+        </div>
+
+        <div className="border-l border-steel/20 pl-3">
+          <span className="text-11 uppercase font-semibold text-amber-dark block">Review Queue Score Sum</span>
+          <div className="font-display font-bold text-24 text-amber-dark tabular-nums mt-0.5 flex items-baseline gap-1">
+            <AnimatedScore value={reviewScoreSum} />
+            <span className="text-12 font-normal text-steel">pts</span>
+          </div>
+          <span className="text-[11px] text-steel">Score 40–69 review mass</span>
         </div>
       </div>
 

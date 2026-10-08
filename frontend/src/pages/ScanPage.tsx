@@ -5,6 +5,7 @@ import { DataTable, Column } from '../components/DataTable';
 import { RiskBandBadge, StatusChip } from '../components/StatusChip';
 import { RiskMeter } from '../components/RiskMeter';
 import { GraphStage3D } from '../components/GraphStage3D';
+import { AnimatedScore } from '../components/AnimatedScore';
 import {
   Upload,
   FileSpreadsheet,
@@ -24,6 +25,7 @@ import {
   Clock,
   KeyRound,
   RotateCcw,
+  Activity,
 } from 'lucide-react';
 
 interface ScanPageProps {
@@ -193,6 +195,17 @@ export const ScanPage: React.FC<ScanPageProps> = ({ onOpenCluster, onClusterScan
     return name.includes(q) || sid.includes(q) || father.includes(q);
   });
 
+  const scannedScoreSum = (scanResult?.clusters || []).reduce((acc, c) => acc + (c.score || 0), 0);
+  const avgScannedScore = scanResult?.clusters?.length
+    ? Math.round(scannedScoreSum / scanResult.clusters.length)
+    : 0;
+  const highRiskScoreSum = (scanResult?.clusters || [])
+    .filter((c) => c.band === 'high')
+    .reduce((acc, c) => acc + (c.score || 0), 0);
+  const reviewRiskScoreSum = (scanResult?.clusters || [])
+    .filter((c) => c.band === 'review')
+    .reduce((acc, c) => acc + (c.score || 0), 0);
+
   return (
     <div className="space-y-6 animate-fadeIn pb-16">
       {/* Header */}
@@ -291,12 +304,42 @@ export const ScanPage: React.FC<ScanPageProps> = ({ onOpenCluster, onClusterScan
       {/* Scan Results View */}
       {scanResult && (
         <div className="space-y-6">
+          {/* Executive Risk Score Summary Banner */}
+          <div className="bg-paper-card border border-steel/20 rounded-lg p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-signal/10 border border-signal/30 flex items-center justify-center shrink-0">
+                <Activity className="w-5 h-5 text-signal" />
+              </div>
+              <div>
+                <div className="text-11 uppercase font-bold tracking-wider text-steel">Dataset Risk Exposure</div>
+                <div className="font-display font-bold text-20 text-ink flex items-center gap-1.5">
+                  <span>Actual Sum of Risk Score:</span>
+                  <AnimatedScore value={scannedScoreSum} suffix=" pts" className="text-signal font-bold" />
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 text-12 divide-x divide-steel/20 flex-wrap">
+              <div>
+                <span className="text-steel">Average Cluster Score: </span>
+                <span className="font-bold text-ink tabular-nums">{avgScannedScore} pts</span>
+              </div>
+              <div className="pl-4">
+                <span className="text-steel">High-Risk Score Mass: </span>
+                <AnimatedScore value={highRiskScoreSum} suffix=" pts" className="font-bold text-signal ml-1" />
+              </div>
+              <div className="pl-4">
+                <span className="text-steel">Review Score Mass: </span>
+                <AnimatedScore value={reviewRiskScoreSum} suffix=" pts" className="font-bold text-amber-dark ml-1" />
+              </div>
+            </div>
+          </div>
+
           {/* Metrics Banner */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <div className="p-4 rounded-lg bg-paper-card border border-steel/20">
               <span className="text-11 text-steel uppercase font-semibold">Records Scanned</span>
               <div className="font-display font-bold text-24 text-ink tabular-nums mt-1">
-                {scanResult.total_records.toLocaleString()}
+                <AnimatedScore value={scanResult.total_records} />
               </div>
             </div>
 
@@ -474,8 +517,13 @@ export const ScanPage: React.FC<ScanPageProps> = ({ onOpenCluster, onClusterScan
 
                     {/* Why Flagged */}
                     <div>
-                      <div className="text-12 font-semibold uppercase tracking-wider text-steel mb-2">
-                        Why this was flagged (Signals &amp; Points)
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-12 font-semibold uppercase tracking-wider text-steel">
+                          Why this was flagged (Signals &amp; Points)
+                        </div>
+                        <div className="text-11 font-bold text-petrol bg-petrol/10 px-2 py-0.5 rounded tabular-nums">
+                          Actual Sum of Risk Score: {selectedClusterForDetail.reasons.reduce((acc, r) => acc + (r.points || 0), 0)} pts
+                        </div>
                       </div>
                       <div className="space-y-2">
                         {selectedClusterForDetail.reasons.map((r, idx) => (
@@ -489,6 +537,12 @@ export const ScanPage: React.FC<ScanPageProps> = ({ onOpenCluster, onClusterScan
                             </span>
                           </div>
                         ))}
+                      </div>
+                      <div className="mt-2.5 p-2 rounded bg-mist/60 border border-steel/15 flex items-center justify-between text-11">
+                        <span className="text-steel font-medium">Actual Score Points Formula:</span>
+                        <span className="font-mono font-semibold text-ink">
+                          {selectedClusterForDetail.reasons.map((r) => `+${r.points}`).join(' ')} = {selectedClusterForDetail.reasons.reduce((acc, r) => acc + (r.points || 0), 0)} pts
+                        </span>
                       </div>
                     </div>
 
